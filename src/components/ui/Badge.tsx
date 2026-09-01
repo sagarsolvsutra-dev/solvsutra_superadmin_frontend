@@ -1,61 +1,42 @@
-"use client";
+import { cn } from "@/lib/utils";
 
-import React from "react";
+type BadgeTone = "success" | "danger" | "warning" | "info" | "neutral";
 
-export interface BadgeProps {
-  variant?: "default" | "success" | "warning" | "danger" | "info" | "gray";
-  size?: "sm" | "md";
-  children: React.ReactNode;
-  className?: string;
-}
+const STYLES: Record<BadgeTone, string> = {
+  success: "bg-emerald-100 text-emerald-700",
+  danger: "bg-red-100 text-red-700",
+  warning: "bg-amber-100 text-amber-700",
+  info: "bg-sky-100 text-sky-700",
+  neutral: "bg-slate-100 text-slate-600",
+};
 
-export const Badge: React.FC<BadgeProps> = ({
-  variant = "default",
-  size = "md",
-  children,
-  className = "",
-}) => {
-  const variants = {
-    default: "bg-gray-100 text-gray-700 border-gray-200",
-    success: "bg-green-50 text-green-700 border-green-200",
-    warning: "bg-amber-50 text-amber-700 border-amber-200",
-    danger: "bg-red-50 text-red-700 border-red-200",
-    info: "bg-blue-50 text-blue-700 border-blue-200",
-    gray: "bg-slate-100 text-slate-700 border-slate-200",
-  };
-
-  const sizes = {
-    sm: "px-2 py-0.5 text-[10px]",
-    md: "px-2.5 py-1 text-xs",
-  };
-
+export function Badge({ tone = "neutral", children }: { tone?: BadgeTone; children: React.ReactNode }) {
   return (
-    <span
-      className={`inline-flex items-center font-medium rounded-full border ${variants[variant]} ${sizes[size]} ${className}`}
-    >
+    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", STYLES[tone])}>
       {children}
     </span>
   );
+}
+
+const STATUS_TONE: Record<string, BadgeTone> = {
+  active: "success",
+  inactive: "neutral",
+  suspended: "danger",
+  pending: "warning",
+  expiring: "warning",
+  expired: "danger",
+  grace_period: "warning",
+  cancelled: "neutral",
+  success: "success",
+  failed: "danger",
+  refunded: "info",
+  created: "neutral",
 };
 
-// Status-specific badges
-export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const statusConfig: Record<string, { variant: BadgeProps["variant"]; label: string }> = {
-    active: { variant: "success", label: "Active" },
-    inactive: { variant: "gray", label: "Inactive" },
-    suspended: { variant: "danger", label: "Suspended" },
-    pending: { variant: "warning", label: "Pending" },
-    expiring: { variant: "warning", label: "Expiring" },
-    expired: { variant: "danger", label: "Expired" },
-    grace_period: { variant: "warning", label: "Grace Period" },
-    cancelled: { variant: "gray", label: "Cancelled" },
-    success: { variant: "success", label: "Success" },
-    failed: { variant: "danger", label: "Failed" },
-    paid: { variant: "success", label: "Paid" },
-    unpaid: { variant: "warning", label: "Unpaid" },
-  };
-
-  const config = statusConfig[status] || { variant: "default", label: status };
-
-  return <Badge variant={config.variant}>{config.label}</Badge>;
-};
+/** Renders any of the app's lowercase/underscored status strings (client, project,
+ * subscription, payment, server, domain) with a consistent tone + humanized label. */
+export function StatusBadge({ status }: { status: string }) {
+  const tone = STATUS_TONE[status?.toLowerCase()] ?? "neutral";
+  const label = status?.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  return <Badge tone={tone}>{label}</Badge>;
+}

@@ -1,150 +1,94 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, Shield } from "lucide-react";
-import { toast } from "sonner";
-import api from "@/lib/apiClient";
+import { FiMail, FiShield } from "react-icons/fi";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { Alert } from "@/components/ui/Alert";
+import { useAuth } from "@/hooks/useAuth";
+import { getErrorMessage } from "@/lib/api";
 import { HEALTH_CHECK } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking");
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetch(HEALTH_CHECK)
-      .then((r) => (r.ok ? setBackendStatus("online") : setBackendStatus("offline")))
+      .then((r) => setBackendStatus(r.ok ? "online" : "offline"))
       .catch(() => setBackendStatus("offline"));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error("Please enter email and password");
-      return;
-    }
-
-    setIsLoading(true);
+    setError("");
+    setLoading(true);
     try {
-      const response = await api.login(email, password);
-      if (response.success) {
-        localStorage.setItem("sa_token", response.token);
-        localStorage.setItem("sa_user", JSON.stringify(response.user));
-        toast.success("Welcome back!");
-        router.push("/dashboard");
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Login failed");
+      await login(email, password);
+      router.replace("/dashboard");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="w-full max-w-md">
-        {/* Logo & Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg mb-4">
-            <Shield className="w-8 h-8 text-white" />
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-slate-50 px-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-lg shadow-indigo-200">
+            <FiShield className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">SolvSutra</h1>
-          <p className="text-slate-400 text-sm mt-1">Super Admin Portal</p>
+          <h1 className="mt-4 text-lg font-semibold text-slate-900">SolvSutra Super Admin</h1>
+          <p className="mt-1 text-sm text-slate-500">Sign in to the Super Admin portal</p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Sign In</h2>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          {error && <Alert type="error">{error}</Alert>}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@solvsutra.com"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+          <Input
+            label="Email"
+            type="email"
+            placeholder="admin@solvsutra.com"
+            icon={<FiMail className="h-4 w-4" />}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoFocus
+          />
+          <PasswordInput
+            label="Password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
+          <Button type="submit" className="mt-2 w-full" loading={loading} disabled={backendStatus === "offline"}>
+            Sign In
+          </Button>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading || backendStatus === "offline"}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  Sign In
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Backend Status */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <div className="flex items-center justify-center gap-2 text-xs">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  backendStatus === "online"
-                    ? "bg-green-500"
-                    : backendStatus === "offline"
-                    ? "bg-red-500"
-                    : "bg-yellow-500 animate-pulse"
-                }`}
-              />
-              <span className="text-gray-500">
-                {backendStatus === "online"
-                  ? "Backend connected"
-                  : backendStatus === "offline"
-                  ? "Backend offline"
-                  : "Checking..."}
-              </span>
-            </div>
+          <div className="flex items-center justify-center gap-2 border-t border-slate-100 pt-4 text-xs">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                backendStatus === "online" ? "bg-emerald-500" : backendStatus === "offline" ? "bg-red-500" : "animate-pulse bg-amber-500"
+              }`}
+            />
+            <span className="text-slate-500">
+              {backendStatus === "online" ? "Backend connected" : backendStatus === "offline" ? "Backend offline" : "Checking..."}
+            </span>
           </div>
-        </div>
+        </form>
 
-        {/* Footer */}
-        <p className="text-center text-slate-500 text-xs mt-6">
-          © 2024 SolvSutra. All rights reserved.
-        </p>
+        <p className="mt-6 text-center text-xs text-slate-400">© {new Date().getFullYear()} SolvSutra. All rights reserved.</p>
       </div>
     </div>
   );

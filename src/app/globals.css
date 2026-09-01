@@ -67,12 +67,42 @@
   animation: spin 1s linear infinite;
 }
 
-/* Toast overrides */
-[data-sonner-toaster] {
-  @apply !font-sans;
-}
-
 /* Focus ring */
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+/* Ported UI kit (Dialog / Toast / ConfirmDialog) animations */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.2s ease-out;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.15s ease-out;
+}
+
+.animate-dialog-in {
+  animation: dialog-in 0.18s ease-out;
 }

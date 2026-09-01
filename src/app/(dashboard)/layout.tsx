@@ -2,27 +2,37 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useAuthStore } from "@/store/authStore";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Topbar } from "@/components/layout/Topbar";
+import { AppShellSkeleton } from "@/components/ui/Skeleton";
+import { SubscriptionExpiryBanner } from "@/components/SubscriptionExpiryBanner";
 
-export default function DashboardLayoutWrapper({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const { token, user, isHydrated } = useAuthStore();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    const token = localStorage.getItem("sa_token");
-    if (!token) {
-      router.push("/login");
+    if (isHydrated && (!token || !user)) {
+      router.replace("/login");
     }
-  }, [router]);
+  }, [isHydrated, token, user, router]);
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-gray-500">Loading...</div>
-      </div>
-    );
+  if (!isHydrated || !token || !user) {
+    return <AppShellSkeleton />;
   }
 
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return (
+    <div className="flex h-screen overflow-hidden bg-slate-50/50">
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+          <SubscriptionExpiryBanner />
+          {children}
+        </main>
+      </div>
+    </div>
+  );
 }

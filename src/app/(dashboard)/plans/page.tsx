@@ -1,85 +1,144 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Plus, Check } from "lucide-react";
-import { toast } from "sonner";
-import api from "@/lib/apiClient";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { useEffect, useState } from "react";
+import { FiPlus, FiCheck, FiEdit2, FiTrash2 } from "react-icons/fi";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Select } from "@/components/ui/Select";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { StatusBadge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
-import { Badge } from "@/components/ui/Badge";
-import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
-import { TableSkeleton } from "@/components/ui/Skeleton";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
+import { Pagination } from "@/components/ui/Pagination";
+import { CardsGridSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { planService } from "@/services/plan.service";
+import { getErrorMessage } from "@/lib/api";
+import type { Plan } from "@/types";
 
-interface Plan {
-  _id: string;
-  planId: string;
+type PlanFormState = {
   name: string;
-  description?: string;
+  description: string;
   price: number;
   currency: string;
   duration: number;
   durationUnit: "day" | "month" | "year";
-  features: string[];
+  features: string;
   isFree: boolean;
   status: "active" | "inactive";
-  createdAt: string;
+  sortOrder: number;
+};
+
+const EMPTY_FORM: PlanFormState = {
+  name: "",
+  description: "",
+  price: 0,
+  currency: "INR",
+  duration: 1,
+  durationUnit: "year",
+  features: "",
+  isFree: false,
+  status: "active",
+  sortOrder: 0,
+};
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "active", label: "Active Only" },
+  { value: "inactive", label: "Inactive Only" },
+  { value: "all", label: "All Plans" },
+];
+
+const DURATION_UNIT_OPTIONS = [
+  { value: "day", label: "Day(s)" },
+  { value: "month", label: "Month(s)" },
+  { value: "year", label: "Year(s)" },
+];
+
+function formatPrice(price: number, currency: string) {
+  if (price === 0) return "Free";
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency }).format(price);
+  } catch {
+    return `${currency} ${price}`;
+  }
+}
+
+function formatDuration(duration: number, unit: string) {
+  return duration === 1 ? `1 ${unit}` : `${duration} ${unit}s`;
 }
 
 export default function PlansPage() {
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const toast = useToast();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
+  const [page, setPage] = useState(1);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    price: 0,
-    currency: "INR",
-    duration: 1,
-    durationUnit: "year" as "day" | "month" | "year",
-    features: "",
-    isFree: false,
-    status: "active" as "active" | "inactive",
-    sortOrder: 0,
-  });
+  const [formData, setFormData] = useState<PlanFormState>(EMPTY_FORM);
 
   useEffect(() => {
-    fetchPlans();
-  }, []);
+    setPage(1);
+  }, [search, statusFilter]);
 
-  const fetchPlans = async () => {
-    setLoading(true);
-    try {
-      const res = await api.getPlans();
-      setPlans(res.plans);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to fetch plans");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredPlans = plans.filter((plan) => {
-    const matchesStatus = statusFilter === "all" || plan.status === statusFilter;
-    const matchesSearch = !searchTerm ||
-      plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      plan.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
+  const {
+    items: plans,
+    total,
+    pages,
+    loading,
+    refetch,
+  } = usePaginatedList(planService.list, {
+    search,
+    page,
+    limit: 9,
+    extraParams: { status: statusFilter === "all" ? undefined : statusFilter },
   });
 
+  const openCreateDialog = () => {
+    setSelectedPlan(null);
+    setFormData(EMPTY_FORM);
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (plan: Plan) => {
+    setSelectedPlan(plan);
+    setFormData({
+      name: plan.name,
+      description: plan.description || "",
+      price: plan.price,
+      currency: plan.currency,
+      duration: plan.duration,
+      durationUnit: plan.durationUnit,
+      features: plan.features.join("\n"),
+      isFree: plan.isFree,
+      status: plan.status,
+      sortOrder: plan.sortOrder,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setSelectedPlan(null);
+    setFormData(EMPTY_FORM);
+  };
+
   const handleSubmit = async () => {
-    if (!formData.name) {
+    if (!formData.name.trim()) {
       toast.error("Plan name is required");
       return;
     }
 
-    const featuresArray = formData.features.split("\n").filter((f) => f.trim());
+    const featuresArray = formData.features
+      .split("\n")
+      .map((f) => f.trim())
+      .filter(Boolean);
 
     setSubmitting(true);
     try {
@@ -90,17 +149,16 @@ export default function PlansPage() {
       };
 
       if (selectedPlan) {
-        await api.updatePlan(selectedPlan._id, payload);
+        await planService.update(selectedPlan._id, payload);
         toast.success("Plan updated successfully");
       } else {
-        await api.createPlan(payload);
+        await planService.create(payload);
         toast.success("Plan created successfully");
       }
-      setIsDialogOpen(false);
-      resetForm();
-      fetchPlans();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to save plan");
+      closeDialog();
+      refetch();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -110,150 +168,189 @@ export default function PlansPage() {
     if (!selectedPlan) return;
     setSubmitting(true);
     try {
-      await api.deletePlan(selectedPlan._id);
+      await planService.remove(selectedPlan._id);
       toast.success("Plan deleted successfully");
       setIsDeleteOpen(false);
       setSelectedPlan(null);
-      fetchPlans();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete plan");
+      refetch();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      price: 0,
-      currency: "INR",
-      duration: 1,
-      durationUnit: "year",
-      features: "",
-      isFree: false,
-      status: "active",
-      sortOrder: 0,
-    });
-    setSelectedPlan(null);
-  };
-
-  const formatPrice = (price: number, currency: string) => {
-    if (price === 0) return "Free";
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency }).format(price);
-  };
-
-  const formatDuration = (duration: number, unit: string) => {
-    if (duration === 1) return `1 ${unit}`;
-    return `${duration} ${unit}s`;
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Plans</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage subscription plans</p>
-        </div>
-        <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => { resetForm(); setIsDialogOpen(true); }}>
-          Add Plan
-        </Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Plans"
+        description="Manage subscription plans"
+        actions={
+          <Button icon={<FiPlus className="h-4 w-4" />} onClick={openCreateDialog}>
+            Add Plan
+          </Button>
+        }
+      />
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1">
-          <Input
-            placeholder="Search plans by name or description..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="w-48">
-          <Select
-            options={[
-              { value: "active", label: "Active Only" },
-              { value: "inactive", label: "Inactive Only" },
-              { value: "all", label: "All Plans" },
-            ]}
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v as "all" | "active" | "inactive")}
-            searchable={false}
-          />
-        </div>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search plans by name or description..." />
+        <Select
+          options={STATUS_FILTER_OPTIONS}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "active" | "inactive" | "all")}
+          wrapperClassName="w-full sm:w-48"
+        />
       </div>
 
       {loading ? (
-        <TableSkeleton rows={5} cols={7} />
-      ) : filteredPlans.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <p className="text-gray-500">No plans found</p>
-        </div>
+        <CardsGridSkeleton count={9} lines={4} />
+      ) : plans.length === 0 ? (
+        <Card className="py-12 text-center">
+          <p className="text-sm text-slate-500">No plans found</p>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPlans.map((plan) => (
-            <div key={plan._id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {plans.map((plan) => (
+            <Card key={plan._id} className="flex flex-col">
+              <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{plan.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{plan.description || "No description"}</p>
+                  <h3 className="text-lg font-semibold text-slate-900">{plan.name}</h3>
+                  <p className="mt-1 text-sm text-slate-500">{plan.description || "No description"}</p>
                 </div>
-                <Badge variant={plan.status === "active" ? "success" : "gray"}>{plan.status}</Badge>
+                <StatusBadge status={plan.status} />
               </div>
               <div className="mb-4">
-                <span className="text-2xl font-bold text-gray-900">{formatPrice(plan.price, plan.currency)}</span>
-                <span className="text-gray-500 text-sm">/{formatDuration(plan.duration, plan.durationUnit)}</span>
+                <span className="text-2xl font-bold text-slate-900">{formatPrice(plan.price, plan.currency)}</span>
+                <span className="text-sm text-slate-500">/{formatDuration(plan.duration, plan.durationUnit)}</span>
               </div>
               {plan.features.length > 0 && (
-                <ul className="space-y-2 mb-4">
+                <ul className="mb-4 space-y-2">
                   {plan.features.slice(0, 4).map((feature, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-sm text-gray-600">
-                      <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    <li key={idx} className="flex items-center gap-2 text-sm text-slate-600">
+                      <FiCheck className="h-4 w-4 shrink-0 text-emerald-500" />
                       <span className="truncate">{feature}</span>
                     </li>
                   ))}
-                  {plan.features.length > 4 && <li className="text-xs text-gray-400">+{plan.features.length - 4} more features</li>}
+                  {plan.features.length > 4 && (
+                    <li className="text-xs text-slate-400">+{plan.features.length - 4} more features</li>
+                  )}
                 </ul>
               )}
-              <div className="flex gap-2 pt-4 border-t">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => { setSelectedPlan(plan); setFormData({ name: plan.name, description: plan.description || "", price: plan.price, currency: plan.currency, duration: plan.duration, durationUnit: plan.durationUnit, features: plan.features.join("\n"), isFree: plan.isFree, status: plan.status, sortOrder: plan.sortOrder }); setIsDialogOpen(true); }}>
+              <div className="mt-auto flex gap-2 border-t border-slate-100 pt-4">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  icon={<FiEdit2 className="h-3.5 w-3.5" />}
+                  onClick={() => openEditDialog(plan)}
+                >
                   Edit
                 </Button>
-                <Button size="sm" variant="ghost" className="text-red-600" onClick={() => { setSelectedPlan(plan); setIsDeleteOpen(true); }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="flex-1 text-red-600 hover:bg-red-50"
+                  icon={<FiTrash2 className="h-3.5 w-3.5" />}
+                  onClick={() => {
+                    setSelectedPlan(plan);
+                    setIsDeleteOpen(true);
+                  }}
+                >
                   Delete
                 </Button>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
-      {/* Add/Edit Dialog */}
-      <Dialog isOpen={isDialogOpen} onClose={() => { setIsDialogOpen(false); resetForm(); }} title={selectedPlan ? "Edit Plan" : "Add Plan"} overflowVisible footer={<><Button variant="secondary" onClick={() => { setIsDialogOpen(false); resetForm(); }}>Cancel</Button><Button onClick={handleSubmit} isLoading={submitting}>{selectedPlan ? "Update" : "Create"}</Button></>}>
+      {!loading && <Pagination page={page} pages={pages} total={total} onPageChange={setPage} limit={9} />}
+
+      <Dialog
+        open={isDialogOpen}
+        onClose={closeDialog}
+        title={selectedPlan ? "Edit Plan" : "Add Plan"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeDialog} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={submitting}>
+              {selectedPlan ? "Update" : "Create"}
+            </Button>
+          </>
+        }
+      >
         <div className="space-y-4">
-          <Input label="Plan Name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} isRequired />
-          <Input label="Description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+          <Input
+            label="Plan Name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
+          <Input
+            label="Description"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          />
           <div className="flex gap-4">
-            <div className="flex-1">
-              <Input label="Price (₹)" type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} disabled={formData.isFree} />
-            </div>
-            <div className="flex items-end gap-2">
-              <Input label="Duration" type="number" value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 1 })} className="w-20" />
-              <Select label="Unit" options={[{ value: "day", label: "Day(s)" }, { value: "month", label: "Month(s)" }, { value: "year", label: "Year(s)" }]} value={formData.durationUnit} onChange={(v) => setFormData({ ...formData, durationUnit: v as any })} className="w-32" searchable={false} />
-            </div>
+            <Input
+              label="Price (₹)"
+              type="number"
+              value={formData.price}
+              onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+              disabled={formData.isFree}
+              wrapperClassName="flex-1"
+            />
+            <Input
+              label="Duration"
+              type="number"
+              value={formData.duration}
+              onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value, 10) || 1 })}
+              wrapperClassName="w-24"
+            />
+            <Select
+              label="Unit"
+              options={DURATION_UNIT_OPTIONS}
+              value={formData.durationUnit}
+              onChange={(e) => setFormData({ ...formData, durationUnit: e.target.value as "day" | "month" | "year" })}
+              wrapperClassName="w-32"
+            />
           </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700">Features (one per line)</label>
-            <textarea value={formData.features} onChange={(e) => setFormData({ ...formData, features: e.target.value })} rows={5} className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Feature 1&#10;Feature 2&#10;Feature 3" />
-          </div>
+          <Textarea
+            label="Features (one per line)"
+            value={formData.features}
+            onChange={(e) => setFormData({ ...formData, features: e.target.value })}
+            rows={5}
+            placeholder={"Feature 1\nFeature 2\nFeature 3"}
+          />
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="isFree" checked={formData.isFree} onChange={(e) => setFormData({ ...formData, isFree: e.target.checked })} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-            <label htmlFor="isFree" className="text-sm text-gray-700">This is a free plan</label>
+            <input
+              type="checkbox"
+              id="isFree"
+              checked={formData.isFree}
+              onChange={(e) =>
+                setFormData({ ...formData, isFree: e.target.checked, price: e.target.checked ? 0 : formData.price })
+              }
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <label htmlFor="isFree" className="text-sm text-slate-700">
+              This is a free plan
+            </label>
           </div>
         </div>
       </Dialog>
 
-      <ConfirmationDialog isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} onConfirm={handleDelete} title="Delete Plan" message={`Are you sure you want to delete the "${selectedPlan?.name}" plan?`} confirmText={submitting ? "Deleting..." : "Delete"} variant="danger" />
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Plan"
+        description={`Are you sure you want to delete the "${selectedPlan?.name}" plan? This action cannot be undone.`}
+        confirmLabel={submitting ? "Deleting..." : "Delete"}
+        variant="danger"
+        loading={submitting}
+      />
     </div>
   );
 }

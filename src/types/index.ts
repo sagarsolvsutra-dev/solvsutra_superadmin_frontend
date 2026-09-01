@@ -1,14 +1,19 @@
+export type Role = 'super_admin' | 'admin' | 'developer' | 'accountant' | 'support';
+
 export interface User {
   _id: string;
   name: string;
   email: string;
   phone?: string;
-  role: 'super_admin' | 'admin' | 'developer' | 'accountant' | 'support';
+  role: Role;
   isActive: boolean;
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Shape persisted in the auth store — same as `User`, aliased for clarity at call sites. */
+export type AuthUser = User;
 
 export interface Client {
   _id: string;
@@ -160,6 +165,23 @@ export interface Domain {
   dnsProvider?: string;
   nameservers?: string[];
   status: 'active' | 'pending' | 'expired' | 'suspended';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Employee {
+  _id: string;
+  employeeId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  designation?: string;
+  joinDate?: string;
+  employmentStatus: 'active' | 'on_leave' | 'inactive';
+  address?: string;
+  userId?: string | { _id: string; name: string; email: string; role: Role };
   notes?: string;
   createdAt: string;
   updatedAt: string;

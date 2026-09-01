@@ -1,24 +1,46 @@
-"use client";
+import { cn } from "@/lib/utils";
 
-import React from "react";
-
-export interface CardProps {
-  children: React.ReactNode;
-  className?: string;
-  title?: string;
-  subtitle?: string;
+export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <div className={cn("rounded-xl border border-slate-200 bg-white p-5 shadow-sm", className)}>{children}</div>;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = "", title, subtitle }) => {
+export function StatCard({
+  label,
+  value,
+  icon,
+  tone = "indigo",
+  hint,
+  hintTone = "neutral",
+}: {
+  label: string;
+  value: React.ReactNode;
+  icon?: React.ReactNode;
+  tone?: "indigo" | "emerald" | "amber" | "sky" | "red";
+  hint?: React.ReactNode;
+  hintTone?: "neutral" | "emerald" | "red";
+}) {
+  const toneStyles = {
+    indigo: "bg-indigo-50 text-indigo-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+    amber: "bg-amber-50 text-amber-600",
+    sky: "bg-sky-50 text-sky-600",
+    red: "bg-red-50 text-red-600",
+  }[tone];
+
+  const hintStyles = {
+    neutral: "text-slate-400",
+    emerald: "text-emerald-600",
+    red: "text-red-600",
+  }[hintTone];
+
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${className}`}>
-      {title && (
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
-        </div>
-      )}
-      <div className="p-6">{children}</div>
-    </div>
+    <Card className="flex items-center gap-4">
+      {icon && <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-lg", toneStyles)}>{icon}</div>}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="mt-0.5 text-xl font-semibold text-slate-900">{value}</p>
+        {hint && <p className={cn("mt-0.5 text-xs font-medium", hintStyles)}>{hint}</p>}
+      </div>
+    </Card>
   );
-};
+}

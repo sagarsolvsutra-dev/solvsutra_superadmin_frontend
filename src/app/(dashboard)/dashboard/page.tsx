@@ -1,311 +1,278 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
-  Users,
-  FolderKanban,
-  CreditCard,
-  CheckCircle,
-  XCircle,
-  Clock,
-  ArrowUpRight,
-  DollarSign,
-} from "lucide-react";
-import api from "@/lib/apiClient";
-import { Skeleton } from "@/components/ui/Skeleton";
+  FiUsers,
+  FiFolder,
+  FiCreditCard,
+  FiDollarSign,
+  FiCheckCircle,
+  FiXCircle,
+  FiClock,
+  FiArrowUpRight,
+  FiAlertTriangle,
+} from "react-icons/fi";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card, StatCard } from "@/components/ui/Card";
+import { Table, type Column } from "@/components/ui/Table";
+import { StatCardsSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
+import { dashboardService } from "@/services/dashboard.service";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import type { DashboardStats } from "@/types";
 
-interface DashboardStats {
-  clients: { total: number; active: number; inactive: number; suspended: number };
-  projects: { total: number; active: number; inactive: number; suspended: number };
-  subscriptions: { total: number; active: number; expiring: number; expired: number; gracePeriod: number; suspended: number; expiringIn30: number };
-  payments: { total: number; success: number; pending: number; failed: number; totalRevenue: number; monthlyRevenue: number };
+interface ExpiringItem {
+  _id: string;
+  expiryDate: string;
+  daysRemaining: number;
+  planId?: { name: string };
+  clientId?: { companyName: string };
+  projectId?: { projectName: string };
 }
 
-interface RecentItem {
+interface ExpiredItem {
   _id: string;
-  companyName?: string;
-  projectName?: string;
-  amount?: number;
-  status?: string;
+  expiryDate: string;
+  daysExpired: number;
+  planId?: { name: string };
+  clientId?: { companyName: string };
+  projectId?: { projectName: string };
+}
+
+interface RecentClient {
+  _id: string;
+  companyName: string;
   createdAt: string;
 }
 
+interface RecentPayment {
+  _id: string;
+  amount: number;
+  status: string;
+  paidAt?: string;
+  createdAt: string;
+  clientId?: { companyName: string };
+  projectId?: { projectName: string };
+}
+
+const daysRemainingTone = (days: number) => {
+  if (days <= 0) return { label: "Expired", tone: "bg-red-100 text-red-700", icon: FiXCircle };
+  if (days <= 7) return { label: `${days}d left`, tone: "bg-orange-100 text-orange-700", icon: FiAlertTriangle };
+  if (days <= 30) return { label: `${days}d left`, tone: "bg-amber-100 text-amber-700", icon: FiClock };
+  return { label: `${days}d left`, tone: "bg-emerald-100 text-emerald-700", icon: FiCheckCircle };
+};
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentClients, setRecentClients] = useState<RecentItem[]>([]);
-  const [recentPayments, setRecentPayments] = useState<RecentItem[]>([]);
-  const [expiringProjects, setExpiringProjects] = useState<RecentItem[]>([]);
+  const [recentClients, setRecentClients] = useState<RecentClient[]>([]);
+  const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
+  const [expiringProjects, setExpiringProjects] = useState<ExpiringItem[]>([]);
+  const [expiredProjects, setExpiredProjects] = useState<ExpiredItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboard();
+    Promise.all([dashboardService.stats(), dashboardService.widgets()])
+      .then(([statsRes, widgetsRes]) => {
+        setStats(statsRes.data.stats);
+        setRecentClients(widgetsRes.data.widgets?.recentClients || []);
+        setRecentPayments(widgetsRes.data.widgets?.recentPayments || []);
+        setExpiringProjects(widgetsRes.data.widgets?.expiringProjects || []);
+        setExpiredProjects(widgetsRes.data.widgets?.expiredProjects || []);
+      })
+      .catch((err) => console.error("Failed to fetch dashboard:", err))
+      .finally(() => setLoading(false));
   }, []);
 
-  const fetchDashboard = async () => {
-    try {
-      const [dashboardRes] = await Promise.all([api.getDashboard()]);
-      setStats(dashboardRes.stats);
-      setRecentClients(dashboardRes.widgets?.recentClients || []);
-      setRecentPayments(dashboardRes.widgets?.recentPayments || []);
-      setExpiringProjects(dashboardRes.widgets?.expiringProjects || []);
-    } catch (error) {
-      console.error("Failed to fetch dashboard:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const statCards = [
-    {
-      title: "Total Clients",
-      value: stats?.clients.total || 0,
-      icon: Users,
-      color: "blue",
-      subtext: `${stats?.clients.active || 0} active`,
-    },
-    {
-      title: "Total Projects",
-      value: stats?.projects.total || 0,
-      icon: FolderKanban,
-      color: "purple",
-      subtext: `${stats?.projects.active || 0} active`,
-    },
-    {
-      title: "Active Subscriptions",
-      value: stats?.subscriptions.active || 0,
-      icon: CreditCard,
-      color: "green",
-      subtext: `${stats?.subscriptions.expiring || 0} expiring`,
-    },
-    {
-      title: "Total Revenue",
-      value: formatCurrency(stats?.payments.totalRevenue || 0),
-      icon: DollarSign,
-      color: "emerald",
-      subtext: `${formatCurrency(stats?.payments.monthlyRevenue || 0)} this month`,
-    },
+  const statusChips = [
+    { label: "Active Projects", value: stats?.projects.active || 0, tone: "text-emerald-600 bg-emerald-50" },
+    { label: "Expiring Soon", value: stats?.subscriptions.expiring || 0, tone: "text-amber-600 bg-amber-50" },
+    { label: "In Grace Period", value: stats?.subscriptions.gracePeriod || 0, tone: "text-orange-600 bg-orange-50" },
+    { label: "Expired", value: stats?.subscriptions.expired || 0, tone: "text-red-600 bg-red-50" },
+    { label: "Suspended", value: stats?.subscriptions.suspended || 0, tone: "text-slate-600 bg-slate-100" },
+    { label: "Pending Payments", value: stats?.payments.pending || 0, tone: "text-sky-600 bg-sky-50" },
   ];
 
-  const statusCards = [
-    { label: "Active Projects", value: stats?.projects.active || 0, color: "text-green-600", bg: "bg-green-50" },
-    { label: "Expiring Soon", value: stats?.subscriptions.expiring || 0, color: "text-amber-600", bg: "bg-amber-50" },
-    { label: "In Grace Period", value: stats?.subscriptions.gracePeriod || 0, color: "text-orange-600", bg: "bg-orange-50" },
-    { label: "Expired", value: stats?.subscriptions.expired || 0, color: "text-red-600", bg: "bg-red-50" },
-    { label: "Suspended", value: stats?.subscriptions.suspended || 0, color: "text-gray-600", bg: "bg-gray-100" },
-    { label: "Pending Payments", value: stats?.payments.pending || 0, color: "text-blue-600", bg: "bg-blue-50" },
+  const paymentColumns: Column<RecentPayment>[] = [
+    { header: "Client", render: (p) => p.clientId?.companyName || "-" },
+    { header: "Project", render: (p) => p.projectId?.projectName || "-" },
+    { header: "Amount", render: (p) => formatCurrency(p.amount) },
+    {
+      header: "Status",
+      render: (p) => (
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+            p.status === "success" ? "bg-emerald-100 text-emerald-700" : p.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+          }`}
+        >
+          {p.status}
+        </span>
+      ),
+    },
+    { header: "Date", render: (p) => formatDate(p.paidAt || p.createdAt) },
   ];
-
-  const colorClasses = {
-    blue: "bg-blue-500",
-    purple: "bg-purple-500",
-    green: "bg-green-500",
-    emerald: "bg-emerald-500",
-  };
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Overview of your SolvSutra system</p>
-      </div>
+    <div>
+      <PageHeader title="Dashboard" description="Overview of your SolvSutra system" />
 
-      {/* Stats Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5">
-              <Skeleton className="h-4 w-24 mb-3" />
-              <Skeleton className="h-8 w-20 mb-2" />
-              <Skeleton className="h-3 w-16" />
-            </div>
-          ))}
-        </div>
+        <StatCardsSkeleton count={4} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statCards.map((card) => (
-            <div key={card.title} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-500">{card.title}</span>
-                <div className={`p-2 rounded-lg ${colorClasses[card.color as keyof typeof colorClasses]} bg-opacity-10`}>
-                  <card.icon className={`w-5 h-5 ${colorClasses[card.color as keyof typeof colorClasses].replace("bg-", "text-")}`} />
-                </div>
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mb-1">{card.value}</div>
-              <div className="text-xs text-gray-500">{card.subtext}</div>
-            </div>
-          ))}
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Total Clients" value={stats?.clients.total || 0} icon={<FiUsers className="h-5 w-5" />} tone="indigo" hint={`${stats?.clients.active || 0} active`} />
+          <StatCard label="Total Projects" value={stats?.projects.total || 0} icon={<FiFolder className="h-5 w-5" />} tone="sky" hint={`${stats?.projects.active || 0} active`} />
+          <StatCard
+            label="Active Subscriptions"
+            value={stats?.subscriptions.active || 0}
+            icon={<FiCreditCard className="h-5 w-5" />}
+            tone="emerald"
+            hint={`${stats?.subscriptions.expiring || 0} expiring`}
+          />
+          <StatCard
+            label="Total Revenue"
+            value={formatCurrency(stats?.payments.totalRevenue || 0)}
+            icon={<FiDollarSign className="h-5 w-5" />}
+            tone="amber"
+            hint={`${formatCurrency(stats?.payments.monthlyRevenue || 0)} this month`}
+          />
         </div>
       )}
 
-      {/* Status Overview */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Subscription Status Overview</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {statusCards.map((card) => (
-            <div key={card.label} className={`${card.bg} rounded-lg p-3 text-center`}>
-              <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
-              <div className="text-xs text-gray-600 mt-1">{card.label}</div>
+      <Card className="mb-6">
+        <h2 className="mb-4 text-base font-semibold text-slate-900">Subscription Status Overview</h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          {statusChips.map((chip) => (
+            <div key={chip.label} className={`rounded-lg p-3 text-center ${chip.tone}`}>
+              <div className="text-2xl font-bold">{chip.value}</div>
+              <div className="mt-1 text-xs text-slate-600">{chip.label}</div>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
 
-      {/* Recent Activity Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Clients */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="text-base font-semibold text-gray-900">Recent Clients</h2>
-            <a href="/clients" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-              View all <ArrowUpRight className="w-4 h-4" />
-            </a>
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="!p-0">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <h2 className="text-base font-semibold text-slate-900">Recent Clients</h2>
+            <Link href="/clients" className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+              View all <FiArrowUpRight className="h-4 w-4" />
+            </Link>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-slate-100">
             {loading ? (
-              [...Array(3)].map((_, i) => (
-                <div key={i} className="px-5 py-3 flex items-center gap-3">
-                  <Skeleton className="w-10 h-10 rounded-full" />
-                  <div className="flex-1">
-                    <Skeleton className="h-4 w-32 mb-1" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                </div>
-              ))
+              <div className="p-5">
+                <CardSkeleton lines={3} />
+              </div>
             ) : recentClients.length > 0 ? (
               recentClients.slice(0, 5).map((client) => (
-                <div key={client._id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                    {(client as any).companyName?.charAt(0) || "?"}
+                <div key={client._id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-sm font-semibold text-white">
+                    {client.companyName?.charAt(0) || "?"}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{(client as any).companyName}</p>
-                    <p className="text-xs text-gray-500">{formatDate((client as any).createdAt)}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="px-5 py-8 text-center text-gray-500 text-sm">No recent clients</div>
-            )}
-          </div>
-        </div>
-
-        {/* Expiring Projects */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="text-base font-semibold text-gray-900">Expiring Soon</h2>
-            <a href="/subscriptions" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-              View all <ArrowUpRight className="w-4 h-4" />
-            </a>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {loading ? (
-              [...Array(3)].map((_, i) => (
-                <div key={i} className="px-5 py-3 flex items-center gap-3">
-                  <Skeleton className="w-10 h-10 rounded-lg" />
-                  <div className="flex-1">
-                    <Skeleton className="h-4 w-32 mb-1" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                </div>
-              ))
-            ) : expiringProjects.length > 0 ? (
-              expiringProjects.slice(0, 5).map((project) => (
-                <div key={project._id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50">
-                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{(project as any).projectName}</p>
-                    <p className="text-xs text-amber-600">
-                      Expires: {formatDate((project as any).expiryDate)}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">{client.companyName}</p>
+                    <p className="text-xs text-slate-500">{formatDate(client.createdAt)}</p>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="px-5 py-8 text-center text-gray-500 text-sm">No expiring projects</div>
+              <div className="px-5 py-8 text-center text-sm text-slate-500">No recent clients</div>
             )}
           </div>
-        </div>
-      </div>
+        </Card>
 
-      {/* Recent Payments */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">Recent Payments</h2>
-          <a href="/payments" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-            View all <ArrowUpRight className="w-4 h-4" />
-          </a>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Client</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Project</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Amount</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                [...Array(3)].map((_, i) => (
-                  <tr key={i}>
-                    {[1, 2, 3, 4, 5].map((j) => (
-                      <td key={j} className="px-5 py-3"><Skeleton className="h-4 w-20" /></td>
-                    ))}
-                  </tr>
-                ))
-              ) : recentPayments.length > 0 ? (
-                recentPayments.slice(0, 5).map((payment) => (
-                  <tr key={payment._id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 text-sm text-gray-900">{(payment as any).clientName}</td>
-                    <td className="px-5 py-3 text-sm text-gray-600">{(payment as any).projectName}</td>
-                    <td className="px-5 py-3 text-sm font-medium text-gray-900">{formatCurrency(payment.amount || 0)}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        payment.status === "success"
-                          ? "bg-green-100 text-green-700"
-                          : payment.status === "pending"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-red-100 text-red-700"
-                      }`}>
-                        {payment.status === "success" && <CheckCircle className="w-3 h-3 mr-1" />}
-                        {payment.status === "pending" && <Clock className="w-3 h-3 mr-1" />}
-                        {payment.status === "failed" && <XCircle className="w-3 h-3 mr-1" />}
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-gray-500">{formatDate(payment.createdAt)}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-gray-500 text-sm">No recent payments</td>
-                </tr>
+        <Card className="!p-0">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Expiring Soon</h2>
+              {expiringProjects.length > 0 && (
+                <p className="mt-0.5 text-xs text-amber-600">
+                  {expiringProjects.length} project{expiringProjects.length > 1 ? "s" : ""} expiring in 30 days
+                </p>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+            <Link href="/subscriptions" className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+              View all <FiArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {loading ? (
+              <div className="p-5">
+                <CardSkeleton lines={3} />
+              </div>
+            ) : expiringProjects.length > 0 ? (
+              expiringProjects.slice(0, 5).map((sub) => {
+                const badge = daysRemainingTone(sub.daysRemaining || 0);
+                const BadgeIcon = badge.icon;
+                return (
+                  <div key={sub._id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${badge.tone}`}>
+                      <BadgeIcon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium text-slate-900">{sub.projectId?.projectName || "Unknown Project"}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.tone}`}>{badge.label}</span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {sub.clientId?.companyName} • Plan: {sub.planId?.name}
+                      </p>
+                      <p className="mt-0.5 text-xs text-amber-600">Expires: {formatDate(sub.expiryDate)}</p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="px-5 py-8 text-center text-sm text-slate-500">No expiring projects</div>
+            )}
+          </div>
+        </Card>
       </div>
+
+      {expiredProjects.length > 0 && (
+        <Card className="mb-6 !p-0 overflow-hidden border-2 border-red-200">
+          <div className="flex items-center justify-between border-b border-red-200 bg-red-50 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <FiXCircle className="h-5 w-5 text-red-600" />
+              <h2 className="text-base font-semibold text-red-900">Expired Subscriptions ({expiredProjects.length})</h2>
+            </div>
+            <Link href="/subscriptions" className="flex items-center gap-1 text-sm text-red-700 hover:text-red-800">
+              View all <FiArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="divide-y divide-red-100">
+            {expiredProjects.map((sub) => (
+              <div key={sub._id} className="flex items-center gap-3 px-5 py-3 hover:bg-red-50">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100">
+                  <FiXCircle className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium text-slate-900">{sub.projectId?.projectName || "Unknown Project"}</p>
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Expired {sub.daysExpired}d ago</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    {sub.clientId?.companyName} • Plan: {sub.planId?.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-red-600">Expired on: {formatDate(sub.expiryDate)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card className="!p-0">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="text-base font-semibold text-slate-900">Recent Payments</h2>
+          <Link href="/payments" className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+            View all <FiArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="p-5">
+          <Table columns={paymentColumns} data={recentPayments.slice(0, 5)} loading={loading} emptyMessage="No recent payments" />
+        </div>
+      </Card>
     </div>
   );
 }

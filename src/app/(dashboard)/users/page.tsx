@@ -1,30 +1,32 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import api from "@/lib/apiClient";
-import { Table, Column } from "@/components/ui/Table";
+import { useEffect, useState } from "react";
+import { FiPlus } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Select } from "@/components/ui/Select";
 import { Dialog } from "@/components/ui/Dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Table, Column } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
-import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
-import { TableSkeleton } from "@/components/ui/Skeleton";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { RowActions, EditAction, DeleteAction } from "@/components/ui/RowActions";
+import { useToast } from "@/components/ui/Toast";
+import { userService } from "@/services/user.service";
+import { getErrorMessage } from "@/lib/api";
+import { formatDate } from "@/lib/utils";
+import type { User, Role } from "@/types";
 
-interface User {
-  _id: string;
+type UserFormData = {
   name: string;
   email: string;
-  phone?: string;
-  role: "super_admin" | "admin" | "developer" | "accountant" | "support";
-  isActive: boolean;
-  lastLogin?: string;
-  createdAt: string;
-}
+  password: string;
+  phone: string;
+  role: Role;
+};
 
-const roleOptions = [
+const roleOptions: { value: Role; label: string }[] = [
   { value: "super_admin", label: "Super Admin" },
   { value: "admin", label: "Admin" },
   { value: "developer", label: "Developer" },
@@ -32,33 +34,32 @@ const roleOptions = [
   { value: "support", label: "Support" },
 ];
 
+const emptyForm: UserFormData = { name: "", email: "", password: "", phone: "", role: "admin" };
+
 export default function UsersPage() {
+  const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    phone: "",
-    role: "admin" as User["role"],
-  });
+  const [deleting, setDeleting] = useState(false);
+  const [formData, setFormData] = useState<UserFormData>(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await api.getUsers();
-      setUsers(res.users);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to fetch users");
+      const res = await userService.list();
+      setUsers((res.data as { users: User[] }).users ?? []);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export default function UsersPage() {
     } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       newErrors.email = "Invalid email format";
     }
-    
+
     if (formData.phone && !/^\d{10}$/.test(formData.phone.trim())) {
       newErrors.phone = "Phone number must be exactly 10 digits";
     }
@@ -87,40 +88,14 @@ export default function UsersPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      toast.error("Please fix the validation errors");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      if (selectedUser) {
-        await api.updateUser(selectedUser._id, {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          role: formData.role,
-          password: formData.password || undefined,
-        });
-        toast.success("User updated successfully");
-      } else {
-        await api.register(formData);
-        toast.success("User created successfully");
-      }
-      setIsDialogOpen(false);
-      setSelectedUser(null);
-      setFormData({ name: "", email: "", password: "", phone: "", role: "admin" });
-      setErrors({});
-      fetchUsers();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to save user");
-    } finally {
-      setSubmitting(false);
-    }
+  const openCreateDialog = () => {
+    setSelectedUser(null);
+    setFormData(emptyForm);
+    setErrors({});
+    setIsDialogOpen(true);
   };
 
-  const handleEdit = (user: User) => {
+  const openEditDialog = (user: User) => {
     setSelectedUser(user);
     setFormData({
       name: user.name,
@@ -133,74 +108,165 @@ export default function UsersPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (user: User) => {
-    setSelectedUser(user);
-    setIsDeleteOpen(true);
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      toast.error("Please fix the validation errors");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (selectedUser) {
+        await userService.update(selectedUser._id, {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          role: formData.role,
+          password: formData.password || undefined,
+        });
+        toast.success("User updated successfully");
+      } else {
+        await userService.create(formData);
+        toast.success("User created successfully");
+      }
+      setIsDialogOpen(false);
+      setSelectedUser(null);
+      setFormData(emptyForm);
+      setErrors({});
+      fetchUsers();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const confirmDelete = async () => {
     if (!selectedUser) return;
+    setDeleting(true);
     try {
-      await api.deleteUser(selectedUser._id);
+      await userService.remove(selectedUser._id);
       toast.success("User deleted successfully");
+      setIsDeleteOpen(false);
+      setSelectedUser(null);
       fetchUsers();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete user");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setDeleting(false);
     }
-    setIsDeleteOpen(false);
-    setSelectedUser(null);
   };
 
   const columns: Column<User>[] = [
-    { key: "name", header: "Name", render: (u) => <span className="font-medium">{u.name}</span> },
-    { key: "email", header: "Email" },
-    { key: "role", header: "Role", render: (u) => <Badge variant={u.role === "super_admin" ? "info" : "gray"}>{u.role}</Badge> },
-    { key: "isActive", header: "Status", render: (u) => <Badge variant={u.isActive ? "success" : "danger"}>{u.isActive ? "Active" : "Inactive"}</Badge> },
-    { key: "lastLogin", header: "Last Login", render: (u) => u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : "-" },
-    { key: "actions", header: "Actions", align: "right", render: (u) => (
-      <div className="flex gap-2 justify-end">
-        <Button size="sm" variant="ghost" onClick={() => handleEdit(u)}><Edit2 size={14} /></Button>
-        {u.role !== "super_admin" && <Button size="sm" variant="ghost" onClick={() => handleDelete(u)}><Trash2 size={14} /></Button>}
-      </div>
-    )},
+    { header: "Name", primary: true, render: (u) => <span className="font-medium">{u.name}</span> },
+    { header: "Email", render: (u) => u.email },
+    { header: "Role", render: (u) => <Badge tone={u.role === "super_admin" ? "info" : "neutral"}>{u.role}</Badge> },
+    { header: "Status", render: (u) => <Badge tone={u.isActive ? "success" : "neutral"}>{u.isActive ? "Active" : "Inactive"}</Badge> },
+    { header: "Last Login", render: (u) => formatDate(u.lastLogin) },
+    {
+      header: "Actions",
+      align: "right",
+      render: (u) => (
+        <RowActions>
+          <EditAction onClick={() => openEditDialog(u)} />
+          {u.role !== "super_admin" && (
+            <DeleteAction
+              onClick={() => {
+                setSelectedUser(u);
+                setIsDeleteOpen(true);
+              }}
+            />
+          )}
+        </RowActions>
+      ),
+    },
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage Super Admin users and their permissions</p>
-        </div>
-        <Button leftIcon={<Plus size={16} />} onClick={() => { setSelectedUser(null); setFormData({ name: "", email: "", password: "", phone: "", role: "admin" }); setErrors({}); setIsDialogOpen(true); }}>
-          Add User
-        </Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Users"
+        description="Manage Super Admin users and their permissions"
+        actions={
+          <Button icon={<FiPlus className="h-4 w-4" />} onClick={openCreateDialog}>
+            Add User
+          </Button>
+        }
+      />
 
-      {loading ? <TableSkeleton rows={5} cols={6} /> : <Table columns={columns} data={users} />}
+      <Table columns={columns} data={users} loading={loading} keyField={(row) => row._id} emptyMessage="No users found" />
 
       <Dialog
-        isOpen={isDialogOpen}
+        open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={selectedUser ? "Edit User" : "Add User"}
-        overflowVisible
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} isLoading={submitting}>{selectedUser ? "Update" : "Create"}</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={submitting}>
+              {selectedUser ? "Update" : "Create"}
+            </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <Input label="Name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} error={errors.name} isRequired />
-          <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} error={errors.email} isRequired />
-          <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} error={errors.phone} />
-          <Select label="Role" options={roleOptions} value={formData.role} onChange={(v) => setFormData({ ...formData, role: v as User["role"] })} error={errors.role} isRequired />
-          <Input label={selectedUser ? "New Password (leave blank to keep)" : "Password"} type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} error={errors.password} isRequired={!selectedUser} />
+          <Input
+            label="Name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            error={errors.name}
+            required
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            error={errors.email}
+            required
+          />
+          <Input
+            label="Phone"
+            // Without these hints Chrome autofills the e-mail address into this
+            // field, which then fails the 10-digit validation.
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            maxLength={10}
+            placeholder="10-digit number"
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            error={errors.phone}
+          />
+          <Select
+            label="Role"
+            options={roleOptions}
+            value={formData.role}
+            onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
+            required
+          />
+          <PasswordInput
+            label={selectedUser ? "New Password (leave blank to keep)" : "Password"}
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            error={errors.password}
+            required={!selectedUser}
+          />
         </div>
       </Dialog>
 
-      <ConfirmationDialog isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} onConfirm={confirmDelete} title="Delete User" message={`Are you sure you want to delete ${selectedUser?.name}? This action cannot be undone.`} confirmText="Delete" variant="danger" />
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        description={`Are you sure you want to delete ${selectedUser?.name}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }

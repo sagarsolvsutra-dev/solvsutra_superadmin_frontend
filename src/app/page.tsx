@@ -2,22 +2,17 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/authStore";
+import { AppShellSkeleton } from "@/components/ui/Skeleton";
 
 export default function HomePage() {
   const router = useRouter();
+  const { token, isHydrated } = useAuthStore();
 
   useEffect(() => {
-    const token = localStorage.getItem("sa_token");
-    if (token) {
-      router.push("/dashboard");
-    } else {
-      router.push("/login");
-    }
-  }, [router]);
+    if (!isHydrated) return;
+    router.replace(token ? "/dashboard" : "/login");
+  }, [isHydrated, token, router]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-gray-500">Loading...</div>
-    </div>
-  );
+  return <AppShellSkeleton />;
 }
