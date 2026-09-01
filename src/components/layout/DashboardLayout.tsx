@@ -310,10 +310,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         onClose={() => setConfirmLogout(false)}
         onConfirm={handleLogout}
         title="Logout Confirmation"
-        description="Are you sure you want to log out?"
+        message="Are you sure you want to log out?"
         confirmText={loggingOut ? "Logging out..." : "Logout"}
         cancelText="Cancel"
-        isDestructive={true}
+        variant="danger"
       />
     </div>
   );

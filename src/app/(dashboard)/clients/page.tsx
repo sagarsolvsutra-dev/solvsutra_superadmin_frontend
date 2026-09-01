@@ -21,6 +21,8 @@ interface Client {
   phone?: string;
   city?: string;
   state?: string;
+  country?: string;
+  gstNumber?: string;
   status: "active" | "inactive" | "suspended";
   createdAt: string;
 }

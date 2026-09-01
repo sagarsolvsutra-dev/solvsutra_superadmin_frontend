@@ -24,6 +24,7 @@ interface Plan {
   features: string[];
   isFree: boolean;
   status: "active" | "inactive";
+  sortOrder: number;
   createdAt: string;
 }
 

@@ -22,7 +22,10 @@ interface Project {
   frontendUrl?: string;
   adminUrl?: string;
   backendUrl?: string;
+  repositoryUrl?: string;
   environment: "development" | "staging" | "production";
+  techStack?: string;
+  domain?: string;
   status: "active" | "inactive" | "suspended";
   apiKey?: string;
   createdAt: string;

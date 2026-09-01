@@ -76,7 +76,7 @@ export default function SubscriptionsPage() {
 
   const fetchProjectsByClient = async (clientId: string) => {
     try {
-      const res = await api.getProjects({ clientId });
+      const res = await api.getProjects(new URLSearchParams({ clientId }).toString());
       setProjects(res.projects.map((p: any) => ({ value: p._id, label: p.projectName })));
     } catch (error) {
       console.error("Failed to fetch projects:", error);
