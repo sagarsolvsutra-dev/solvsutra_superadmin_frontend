@@ -299,9 +299,8 @@ export default function SubscriptionsPage() {
           <div>
             <div>{formatDate(row.expiryDate)}</div>
             <div
-              className={`text-xs ${
-                days <= 7 ? "font-medium text-red-500" : days <= 30 ? "text-amber-500" : "text-slate-500"
-              }`}
+              className={`text-xs ${days <= 7 ? "font-medium text-red-500" : days <= 30 ? "text-amber-500" : "text-slate-500"
+                }`}
             >
               {days > 0 ? `${days} days left` : "Expired"}
             </div>

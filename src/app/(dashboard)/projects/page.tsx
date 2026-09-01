@@ -80,7 +80,7 @@ export default function ProjectsPage() {
     clientService
       .list({ limit: 200 })
       .then((res) => setClients(res.data.items))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
   const clientOptions = clients.map((c) => ({ label: c.companyName, value: c._id }));
 
@@ -111,7 +111,7 @@ export default function ProjectsPage() {
         }
         setSubscriptionsByProject(map);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const projectSubscriptionHealth = (projectId: string): "expired" | "critical" | null => {
