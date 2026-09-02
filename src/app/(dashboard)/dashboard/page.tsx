@@ -154,7 +154,7 @@ export default function DashboardPage() {
         <Card className="!p-0">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <h2 className="text-base font-semibold text-slate-900">Recent Clients</h2>
-            <Link href="/clients" className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+            <Link href="/clients" className="flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
               View all <FiArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
             ) : recentClients.length > 0 ? (
               recentClients.slice(0, 5).map((client) => (
                 <div key={client._id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-sm font-semibold text-white">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-semibold text-white">
                     {client.companyName?.charAt(0) || "?"}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -191,7 +191,7 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <Link href="/subscriptions" className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+            <Link href="/subscriptions" className="flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
               View all <FiArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
@@ -265,7 +265,7 @@ export default function DashboardPage() {
       <Card className="!p-0">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <h2 className="text-base font-semibold text-slate-900">Recent Payments</h2>
-          <Link href="/payments" className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+          <Link href="/payments" className="flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
             View all <FiArrowUpRight className="h-4 w-4" />
           </Link>
         </div>

@@ -62,7 +62,7 @@ export function CardsGridSkeleton({ count = 3, lines = 4 }: { count?: number; li
 export function TableBlockSkeleton({ rows = 6, cols = 4 }: { rows?: number; cols?: number }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="h-11 bg-indigo-600/20" />
+      <div className="h-11 bg-brand-600/20" />
       <div className="divide-y divide-slate-100">
         {Array.from({ length: rows }).map((_, r) => (
           <div key={r} className="flex h-14 items-center gap-4 px-4">

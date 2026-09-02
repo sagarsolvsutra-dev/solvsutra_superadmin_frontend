@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FiX, FiChevronDown, FiShield } from "react-icons/fi";
+import { FiX, FiChevronDown } from "react-icons/fi";
 import { cn } from "@/lib/utils";
 import { NAV_GROUPS } from "./navConfig";
 
@@ -53,11 +53,9 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         )}
       >
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-100 px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 text-white">
-              <FiShield className="h-4.5 w-4.5" />
-            </div>
-            <span className="text-sm font-semibold text-slate-900">SolvSutra</span>
+          <Link href="/dashboard" className="flex items-baseline gap-0.5 text-base font-extrabold tracking-tight">
+            <span className="text-brand-600">SOLV</span>
+            <span className="text-ink">SUTRA</span>
           </Link>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 lg:hidden">
             <FiX className="h-5 w-5" />
@@ -90,11 +88,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                           onClick={onClose}
                           className={cn(
                             "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 transition-colors",
-                            active ? "bg-indigo-50 text-indigo-700" : "text-slate-900 hover:bg-slate-50"
+                            active ? "bg-brand-50 text-brand-700" : "text-slate-900 hover:bg-slate-50"
                           )}
                         >
-                          <Icon className={cn("h-4 w-4 shrink-0", active ? "text-indigo-600" : "text-slate-400")} />
-                          <span className={cn("min-w-0 truncate text-sm font-semibold", active ? "text-indigo-700" : "text-slate-900")}>
+                          <Icon className={cn("h-4 w-4 shrink-0", active ? "text-brand-600" : "text-slate-400")} />
+                          <span className={cn("min-w-0 truncate text-sm font-semibold", active ? "text-brand-700" : "text-slate-900")}>
                             {item.label}
                           </span>
                         </Link>

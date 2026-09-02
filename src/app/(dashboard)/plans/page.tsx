@@ -332,7 +332,7 @@ export default function PlansPage() {
               onChange={(e) =>
                 setFormData({ ...formData, isFree: e.target.checked, price: e.target.checked ? 0 : formData.price })
               }
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
             />
             <label htmlFor="isFree" className="text-sm text-slate-700">
               This is a free plan

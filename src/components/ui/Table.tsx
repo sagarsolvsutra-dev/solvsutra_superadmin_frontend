@@ -119,12 +119,12 @@ export function Table<T>({
       <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white sm:block">
         <table className="w-full min-w-max border-collapse text-sm">
           <thead>
-            <tr className="h-11 bg-indigo-600 text-xs font-semibold uppercase tracking-wide text-white">
+            <tr className="h-11 bg-brand-600 text-xs font-semibold uppercase tracking-wide text-white">
               {columns.map((column, idx) => (
                 <th
                   key={column.key || `col-${idx}-${column.header}`}
                   className={cn(
-                    "whitespace-nowrap border-r border-indigo-500/60 px-4 py-3 font-semibold last:border-r-0",
+                    "whitespace-nowrap border-r border-brand-500/60 px-4 py-3 font-semibold last:border-r-0",
                     alignClass(column.align),
                     column.headerClassName
                   )}
@@ -233,7 +233,7 @@ export function Table<T>({
                         e.stopPropagation();
                         toggleExpanded(key);
                       }}
-                      className="mt-2.5 flex items-center gap-1 text-xs font-medium text-indigo-600"
+                      className="mt-2.5 flex items-center gap-1 text-xs font-medium text-brand-600"
                     >
                       Details <FiChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
                     </button>
@@ -323,7 +323,7 @@ function PageButton({ children, active, onClick }: { children: React.ReactNode; 
       onClick={onClick}
       className={cn(
         "h-8 min-w-8 cursor-pointer rounded-lg border px-2.5 text-sm font-medium transition-colors",
-        active ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+        active ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"
       )}
     >
       {children}

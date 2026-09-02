@@ -98,7 +98,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
                 <span className="text-sm font-semibold text-slate-800">Notifications</span>
                 {unreadCount > 0 && (
-                  <button onClick={handleMarkAllRead} className="text-xs font-medium text-indigo-600 hover:underline">
+                  <button onClick={handleMarkAllRead} className="text-xs font-medium text-brand-600 hover:underline">
                     Mark all read
                   </button>
                 )}
@@ -110,11 +110,11 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                       key={n._id}
                       onClick={() => handleOpenNotif(n)}
                       className={`flex w-full flex-col items-start gap-0.5 border-b border-slate-50 px-3 py-2.5 text-left last:border-b-0 hover:bg-slate-50 ${
-                        n.isRead ? "" : "bg-indigo-50/50"
+                        n.isRead ? "" : "bg-brand-50/50"
                       }`}
                     >
                       <span className="flex w-full items-center gap-2">
-                        {!n.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />}
+                        {!n.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />}
                         <span className={`text-sm ${n.isRead ? "font-medium text-slate-700" : "font-semibold text-slate-900"}`}>
                           {n.title}
                         </span>
@@ -131,7 +131,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                 )}
               </div>
               <div className="border-t border-slate-100 px-3 py-2 text-center">
-                <Link href="/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-medium text-indigo-600 hover:underline">
+                <Link href="/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-medium text-brand-600 hover:underline">
                   View all
                 </Link>
               </div>
@@ -141,7 +141,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
 
         <div className="relative" ref={menuRef}>
           <button onClick={() => setMenuOpen((v) => !v)} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
               {user?.name?.charAt(0).toUpperCase() || "U"}
             </div>
             <div className="hidden text-left sm:block">

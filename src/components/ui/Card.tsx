@@ -20,7 +20,7 @@ export function StatCard({
   hintTone?: "neutral" | "emerald" | "red";
 }) {
   const toneStyles = {
-    indigo: "bg-indigo-50 text-indigo-600",
+    indigo: "bg-brand-50 text-brand-600",
     emerald: "bg-emerald-50 text-emerald-600",
     amber: "bg-amber-50 text-amber-600",
     sky: "bg-sky-50 text-sky-600",

@@ -294,7 +294,7 @@ export default function ProjectsPage() {
       header: "Frontend",
       render: (row) =>
         row.frontendUrl ? (
-          <a href={row.frontendUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:underline">
+          <a href={row.frontendUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">
             Link
           </a>
         ) : (
@@ -551,9 +551,9 @@ export default function ProjectsPage() {
               <p className="mt-2 text-xs text-slate-500">Regenerating invalidates the existing API key immediately.</p>
             </div>
 
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-5">
+            <div className="rounded-lg border border-brand-200 bg-brand-50/50 p-5">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <FiCreditCard size={16} className="text-indigo-600" /> Current Plan &amp; Subscription
+                <FiCreditCard size={16} className="text-brand-600" /> Current Plan &amp; Subscription
               </h3>
 
               {loadingSubscription ? (
@@ -580,7 +580,7 @@ export default function ProjectsPage() {
                     <StatusBadge status={projectSubscription.status} />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-t border-indigo-200 pt-3">
+                  <div className="grid grid-cols-2 gap-3 border-t border-brand-200 pt-3">
                     <div className="flex items-start gap-2">
                       <FiCalendar size={14} className="mt-0.5 text-slate-400" />
                       <div>
@@ -617,7 +617,7 @@ export default function ProjectsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-t border-indigo-200 pt-3">
+                  <div className="grid grid-cols-2 gap-3 border-t border-brand-200 pt-3">
                     <div>
                       <span className="block text-xs text-slate-500">Subscription ID</span>
                       <p className="font-mono text-xs">{projectSubscription.subscriptionId}</p>
@@ -638,7 +638,7 @@ export default function ProjectsPage() {
                   {detailsProject.frontendUrl && (
                     <div>
                       <span className="text-slate-500">Frontend:</span>{" "}
-                      <a href={detailsProject.frontendUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                      <a href={detailsProject.frontendUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">
                         {detailsProject.frontendUrl}
                       </a>
                     </div>
@@ -646,7 +646,7 @@ export default function ProjectsPage() {
                   {detailsProject.adminUrl && (
                     <div>
                       <span className="text-slate-500">Admin:</span>{" "}
-                      <a href={detailsProject.adminUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                      <a href={detailsProject.adminUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">
                         {detailsProject.adminUrl}
                       </a>
                     </div>
@@ -654,7 +654,7 @@ export default function ProjectsPage() {
                   {detailsProject.backendUrl && (
                     <div>
                       <span className="text-slate-500">Backend:</span>{" "}
-                      <a href={detailsProject.backendUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                      <a href={detailsProject.backendUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">
                         {detailsProject.backendUrl}
                       </a>
                     </div>

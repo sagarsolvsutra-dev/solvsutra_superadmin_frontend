@@ -40,7 +40,7 @@ const EMPTY_FORM: SubscriptionFormState = {
   projectId: "",
   planId: "",
   startDate: "",
-  gracePeriodDays: 7,
+  gracePeriodDays: 0,
   autoRenew: false,
 };
 

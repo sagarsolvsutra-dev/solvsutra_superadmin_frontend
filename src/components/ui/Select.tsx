@@ -182,7 +182,7 @@ export function Select({
           aria-expanded={open}
           className={cn(
             "flex h-9.5 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 text-left text-sm transition-colors",
-            "focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100",
+            "focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100",
             "disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500",
             error && "border-red-400 focus:border-red-500 focus:ring-red-100",
             className
@@ -230,7 +230,7 @@ export function Select({
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleListKeyDown}
                     placeholder="Search..."
-                    className="h-8 w-full rounded-md border border-slate-200 pl-7 pr-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-100"
+                    className="h-8 w-full rounded-md border border-slate-200 pl-7 pr-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-100"
                   />
                 </div>
               </li>
@@ -248,12 +248,12 @@ export function Select({
                   onClick={() => selectValue(opt.value)}
                   className={cn(
                     "flex cursor-pointer items-center justify-between px-3 py-2 text-sm",
-                    i === highlighted ? "bg-indigo-50 text-indigo-700" : "text-slate-700",
+                    i === highlighted ? "bg-brand-50 text-brand-700" : "text-slate-700",
                     isSelected && "font-medium"
                   )}
                 >
                   <span className="truncate">{opt.label}</span>
-                  {isSelected && <FiCheck className="h-3.5 w-3.5 shrink-0 text-indigo-600" />}
+                  {isSelected && <FiCheck className="h-3.5 w-3.5 shrink-0 text-brand-600" />}
                 </li>
               );
             })}

@@ -98,9 +98,9 @@ export function Pagination({ page, pages, total, onPageChange, limit = 10 }: Pag
             onKeyDown={(e) => {
               if (e.key === "Enter") handleJump();
             }}
-            className="h-8 w-16 rounded-lg border border-slate-300 px-2 text-center text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            className="h-8 w-16 rounded-lg border border-slate-300 px-2 text-center text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
           />
-          <button onClick={handleJump} className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-700">
+          <button onClick={handleJump} className="cursor-pointer font-medium text-brand-600 hover:text-brand-700">
             Go
           </button>
         </div>

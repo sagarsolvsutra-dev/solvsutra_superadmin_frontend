@@ -161,7 +161,7 @@ export default function NotificationsPage() {
             return (
               <div
                 key={notification._id}
-                className={cn("flex items-start gap-4 p-4 transition-colors", !notification.isRead && "bg-indigo-50/40")}
+                className={cn("flex items-start gap-4 p-4 transition-colors", !notification.isRead && "bg-brand-50/40")}
               >
                 <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", bgClass)}>
                   <Icon className={cn("h-5 w-5", iconClass)} />
@@ -172,7 +172,7 @@ export default function NotificationsPage() {
                     <h3 className={cn("text-sm", notification.isRead ? "font-medium text-slate-700" : "font-semibold text-slate-900")}>
                       {notification.title}
                     </h3>
-                    {!notification.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500" />}
+                    {!notification.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
                     {isExpiryRelated && (
                       <Badge tone={typeBadgeTone(notification.type)}>{TYPE_LABEL[notification.type] ?? notification.type}</Badge>
                     )}
@@ -194,7 +194,7 @@ export default function NotificationsPage() {
                     <>
                       <Link
                         href={`/subscriptions?highlight=${notification.subscriptionId}`}
-                        className="rounded-lg p-2 text-indigo-600 transition-colors hover:bg-indigo-50"
+                        className="rounded-lg p-2 text-brand-600 transition-colors hover:bg-brand-50"
                         title="View subscription"
                       >
                         <FiEye className="h-4 w-4" />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiMail, FiShield } from "react-icons/fi";
+import { FiMail } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
@@ -41,14 +41,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-slate-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-slate-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-lg shadow-indigo-200">
-            <FiShield className="h-8 w-8 text-white" />
+          <div className="flex items-baseline gap-1 text-4xl font-extrabold tracking-tight">
+            <span className="text-brand-600">SOLV</span>
+            <span className="text-ink">SUTRA</span>
           </div>
-          <h1 className="mt-4 text-lg font-semibold text-slate-900">SolvSutra Super Admin</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to the Super Admin portal</p>
+          <p className="mt-1 text-[11px] font-semibold tracking-[0.35em] text-slate-400">
+            <span className="text-brand-600">S</span>O<span className="text-ink">F</span>T
+            <span className="text-brand-600">W</span>A<span className="text-ink">R</span>E
+          </p>
+          <p className="mt-4 text-sm text-slate-500">Sign in to the Super Admin portal</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
