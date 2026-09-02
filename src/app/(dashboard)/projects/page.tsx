@@ -15,6 +15,7 @@ import { Badge, StatusBadge } from "@/components/ui/Badge";
 import { RowActions, ViewAction, EditAction, DeleteAction, RegenerateAction } from "@/components/ui/RowActions";
 import { FiUsers } from "react-icons/fi";
 import { ProjectTeamDialog } from "@/components/projects/ProjectTeamDialog";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { projectTeamService, type StaffSummary } from "@/services";
 import { useToast } from "@/components/ui/Toast";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
@@ -494,7 +495,10 @@ export default function ProjectsPage() {
                 </div>
                 <div>
                   <span className="text-slate-500">Project ID:</span>
-                  <p className="font-mono text-xs">{detailsProject.projectId}</p>
+                  <div className="flex items-center gap-1">
+                    <p className="font-mono text-xs">{detailsProject.projectId}</p>
+                    <CopyButton value={detailsProject.projectId} label="Copy Project ID" />
+                  </div>
                 </div>
                 <div>
                   <span className="text-slate-500">Client:</span>
@@ -536,9 +540,12 @@ export default function ProjectsPage() {
               <div className="space-y-2 text-sm">
                 <div>
                   <span className="text-slate-500">API Key:</span>
-                  <p className="mt-1 break-all rounded bg-white px-3 py-2 font-mono text-xs">
-                    {detailsProject.apiKey || "Regenerate to get credentials"}
-                  </p>
+                  <div className="mt-1 flex items-start gap-2 rounded bg-white px-3 py-2">
+                    <p className="min-w-0 flex-1 break-all font-mono text-xs">
+                      {detailsProject.apiKey || "Regenerate to get credentials"}
+                    </p>
+                    <CopyButton value={detailsProject.apiKey} label="Copy API key" />
+                  </div>
                 </div>
               </div>
               <p className="mt-2 text-xs text-slate-500">Regenerating invalidates the existing API key immediately.</p>

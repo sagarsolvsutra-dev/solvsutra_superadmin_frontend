@@ -16,3 +16,4 @@ export * from "./Card";
 export * from "./RowActions";
 export * from "./DateRangeFilter";
 export * from "./SearchInput";
+export * from "./CopyButton";
