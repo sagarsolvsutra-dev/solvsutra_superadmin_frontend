@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FiMail } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
@@ -53,14 +54,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-slate-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="flex items-baseline gap-1 text-4xl font-extrabold tracking-tight">
-            <span className="text-brand-600">SOLV</span>
-            <span className="text-ink">SUTRA</span>
-          </div>
-          <p className="mt-1 text-[11px] font-semibold tracking-[0.35em] text-slate-400">
-            <span className="text-brand-600">S</span>O<span className="text-ink">F</span>T
-            <span className="text-brand-600">W</span>A<span className="text-ink">R</span>E
-          </p>
+          <Image src="/logo-wordmark.jpg" alt="SolvSutra Software" width={280} height={56} className="h-12 w-auto" priority />
           <p className="mt-4 text-sm text-slate-500">Sign in to the Super Admin portal</p>
         </div>
 

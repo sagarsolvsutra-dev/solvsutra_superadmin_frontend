@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FiX, FiChevronDown } from "react-icons/fi";
@@ -53,9 +54,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         )}
       >
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-100 px-4">
-          <Link href="/dashboard" className="flex items-baseline gap-0.5 text-base font-extrabold tracking-tight">
-            <span className="text-brand-600">SOLV</span>
-            <span className="text-ink">SUTRA</span>
+          <Link href="/dashboard" className="flex items-center">
+            <Image src="/logo-wordmark.jpg" alt="SolvSutra Software" width={148} height={30} className="h-7 w-auto" priority />
           </Link>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 lg:hidden">
             <FiX className="h-5 w-5" />
