@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user) {
@@ -30,8 +31,16 @@ export default function SettingsPage() {
 
   const handleProfileUpdate = async () => {
     if (!user) return;
-    if (!profileData.name || !profileData.email) {
-      toast.error("Name and Email are required");
+    const newErrors: Record<string, string> = {};
+    if (!profileData.name.trim()) newErrors.name = "Name is required";
+    if (!profileData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^\S+@\S+\.\S+$/.test(profileData.email)) {
+      newErrors.email = "Invalid email format";
+    }
+    setProfileErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fix the validation errors");
       return;
     }
     setSavingProfile(true);
@@ -85,12 +94,19 @@ export default function SettingsPage() {
             <FiShield className="h-5 w-5" /> Profile Information
           </h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Input label="Name" value={profileData.name} onChange={(e) => setProfileData({ ...profileData, name: e.target.value })} required />
+            <Input
+              label="Name"
+              value={profileData.name}
+              onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+              error={profileErrors.name}
+              required
+            />
             <Input
               label="Email"
               type="email"
               value={profileData.email}
               onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+              error={profileErrors.email}
               required
             />
             <Input

@@ -71,8 +71,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Guard against setState after unmount — same `active` ref-flag pattern
+    // used by Topbar.tsx's fetchNotifications, since this page can unmount
+    // (route change) before the request resolves.
+    const active = { current: true };
     Promise.all([dashboardService.stats(), dashboardService.widgets()])
       .then(([statsRes, widgetsRes]) => {
+        if (!active.current) return;
         setStats(statsRes.data.stats);
         setRecentClients(widgetsRes.data.widgets?.recentClients || []);
         setRecentPayments(widgetsRes.data.widgets?.recentPayments || []);
@@ -80,7 +85,12 @@ export default function DashboardPage() {
         setExpiredProjects(widgetsRes.data.widgets?.expiredProjects || []);
       })
       .catch((err) => console.error("Failed to fetch dashboard:", err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active.current) setLoading(false);
+      });
+    return () => {
+      active.current = false;
+    };
   }, []);
 
   const statusChips = [

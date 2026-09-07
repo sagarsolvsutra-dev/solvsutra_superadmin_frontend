@@ -173,7 +173,11 @@ export default function DomainsPage() {
       toast.success("Domain deleted");
       setIsDeleteOpen(false);
       setSelectedDomain(null);
-      refetch();
+      if (domains.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        refetch();
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {

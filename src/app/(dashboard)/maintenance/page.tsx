@@ -14,45 +14,37 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/Input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Textarea } from "@/components/ui/Textarea";
-import { RowActions, RegenerateAction, CancelAction, EditAction, DeleteAction } from "@/components/ui/RowActions";
+import { RowActions, RegenerateAction, EditAction, DeleteAction } from "@/components/ui/RowActions";
 import { useToast } from "@/components/ui/Toast";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-import { subscriptionService } from "@/services/subscription.service";
+import { maintenanceService } from "@/services/maintenance.service";
+import { maintenancePlanService } from "@/services/maintenancePlan.service";
 import { clientService } from "@/services/client.service";
 import { projectService } from "@/services/project.service";
-import { planService } from "@/services/plan.service";
 import { getErrorMessage } from "@/lib/api";
-import { formatDate, subscriptionHealth, toDateInputValue } from "@/lib/utils";
-import type { Subscription, Client, Project, Plan } from "@/types";
+import { formatDate, maintenanceHealth } from "@/lib/utils";
+import type { MaintenanceSubscription, MaintenancePlan, Client, Project } from "@/types";
 
 type SelectOption = { label: string; value: string };
 
-type SubscriptionFormState = {
+type MaintenanceFormState = {
   clientId: string;
   projectId: string;
-  planId: string;
+  maintenancePlanId: string;
   startDate: string;
-  gracePeriodDays: number;
-  autoRenew: boolean;
 };
 
-const EMPTY_FORM: SubscriptionFormState = {
+const EMPTY_FORM: MaintenanceFormState = {
   clientId: "",
   projectId: "",
-  planId: "",
+  maintenancePlanId: "",
   startDate: "",
-  gracePeriodDays: 0,
-  autoRenew: false,
 };
 
 const STATUS_FILTER_OPTIONS = [
   { value: "", label: "All Status" },
-  { value: "pending", label: "Pending" },
   { value: "active", label: "Active" },
-  { value: "expiring", label: "Expiring" },
   { value: "expired", label: "Expired" },
-  { value: "grace_period", label: "Grace Period" },
-  { value: "suspended", label: "Suspended" },
   { value: "cancelled", label: "Cancelled" },
 ];
 
@@ -62,29 +54,17 @@ const AUTO_RENEW_OPTIONS = [
   { value: "true", label: "Yes" },
 ];
 
-type SubscriptionEditForm = {
-  clientId: string;
-  projectId: string;
-  planId: string;
-  startDate: string;
-  gracePeriodDays: number;
+type MaintenanceEditForm = {
   autoRenew: string;
   status: string;
   notes: string;
 };
 
-const EMPTY_EDIT_FORM: SubscriptionEditForm = {
-  clientId: "",
-  projectId: "",
-  planId: "",
-  startDate: "",
-  gracePeriodDays: 7,
+const EMPTY_EDIT_FORM: MaintenanceEditForm = {
   autoRenew: "false",
   status: "active",
   notes: "",
 };
-
-const idOf = (value: string | { _id: string } | undefined) => (typeof value === "object" && value ? value._id : (value as string) || "");
 
 function nameOf<T extends { _id: string }>(value: string | T | undefined, pick: (item: T) => string): string {
   if (!value) return "-";
@@ -96,15 +76,16 @@ function getDaysRemaining(expiryDate: string) {
   return Math.ceil((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-/** The stored `status` only flips to "expired" once the daily cron sweep runs,
- * so a subscription can be well past its grace period while it still reads
- * "active" — show the live-computed truth instead of that stale value. */
-function displayStatus(sub: Subscription): string {
-  if (subscriptionHealth(sub) === "expired" && sub.status !== "suspended" && sub.status !== "cancelled") return "expired";
-  return sub.status;
+/** The stored `status` only flips to "expired" once the daily cron sweep
+ * runs, so a maintenance subscription can be well past its expiry date while
+ * it still reads "active" — show the live-computed truth instead, same as
+ * the Subscriptions page does for hosting plans. */
+function displayStatus(row: MaintenanceSubscription): string {
+  if (maintenanceHealth(row) === "expired" && row.status !== "cancelled") return "expired";
+  return row.status;
 }
 
-export default function SubscriptionsPage() {
+export default function MaintenancePage() {
   const toast = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -112,22 +93,20 @@ export default function SubscriptionsPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState<SubscriptionFormState>(EMPTY_FORM);
+  const [formData, setFormData] = useState<MaintenanceFormState>(EMPTY_FORM);
 
   const [clientOptions, setClientOptions] = useState<SelectOption[]>([]);
-  const [planOptions, setPlanOptions] = useState<SelectOption[]>([]);
+  const [maintenancePlanOptions, setMaintenancePlanOptions] = useState<{ label: string; value: string }[]>([]);
   const [projectOptions, setProjectOptions] = useState<SelectOption[]>([]);
 
-  const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
-  const [suspendTarget, setSuspendTarget] = useState<Subscription | null>(null);
+  const [renewTarget, setRenewTarget] = useState<MaintenanceSubscription | null>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
 
-  const [editTarget, setEditTarget] = useState<Subscription | null>(null);
-  const [editForm, setEditForm] = useState<SubscriptionEditForm>(EMPTY_EDIT_FORM);
-  const [editProjectOptions, setEditProjectOptions] = useState<SelectOption[]>([]);
+  const [editTarget, setEditTarget] = useState<MaintenanceSubscription | null>(null);
+  const [editForm, setEditForm] = useState<MaintenanceEditForm>(EMPTY_EDIT_FORM);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
-  const [deleteTarget, setDeleteTarget] = useState<Subscription | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MaintenanceSubscription | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -135,11 +114,11 @@ export default function SubscriptionsPage() {
   }, [search, statusFilter]);
 
   const {
-    items: subscriptions,
+    items: maintenanceSubscriptions,
     pages,
     loading,
     refetch,
-  } = usePaginatedList(subscriptionService.list, {
+  } = usePaginatedList(maintenanceService.list, {
     search,
     page,
     limit: 10,
@@ -147,23 +126,28 @@ export default function SubscriptionsPage() {
   });
 
   useEffect(() => {
-    Promise.all([clientService.list({ limit: 200 }), planService.list({ limit: 200 })])
+    Promise.all([clientService.list({ limit: 200 }), maintenancePlanService.list({ limit: 200, status: "active" })])
       .then(([clientsRes, plansRes]) => {
         setClientOptions(clientsRes.data.items.map((c: Client) => ({ value: c._id, label: c.companyName })));
-        setPlanOptions(plansRes.data.items.map((p: Plan) => ({ value: p._id, label: `${p.name} - ₹${p.price}` })));
+        setMaintenancePlanOptions(
+          plansRes.data.items.map((p: MaintenancePlan) => ({
+            value: p._id,
+            label: `${p.name} — ${p.isFree ? "Free" : `₹${p.price}`}/${p.durationUnit}`,
+          }))
+        );
       })
       .catch((err) => toast.error(getErrorMessage(err)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchProjectsForClient = async (clientId: string, setter: (opts: SelectOption[]) => void) => {
+  const fetchProjectsForClient = async (clientId: string) => {
     if (!clientId) {
-      setter([]);
+      setProjectOptions([]);
       return;
     }
     try {
       const res = await projectService.list({ clientId, limit: 200 });
-      setter(res.data.items.map((p: Project) => ({ value: p._id, label: p.projectName })));
+      setProjectOptions(res.data.items.map((p: Project) => ({ value: p._id, label: p.projectName })));
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -180,15 +164,15 @@ export default function SubscriptionsPage() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.clientId || !formData.projectId || !formData.planId) {
+    if (!formData.clientId || !formData.projectId || !formData.maintenancePlanId) {
       toast.error("Please fill in all required fields");
       return;
     }
 
     setSubmitting(true);
     try {
-      await subscriptionService.create(formData);
-      toast.success("Subscription created successfully");
+      await maintenanceService.create(formData);
+      toast.success("Maintenance plan assigned to project");
       closeDialog();
       refetch();
     } catch (err) {
@@ -202,8 +186,8 @@ export default function SubscriptionsPage() {
     if (!renewTarget) return;
     setActionSubmitting(true);
     try {
-      await subscriptionService.renew(renewTarget._id, {});
-      toast.success("Subscription renewed successfully");
+      await maintenanceService.renew(renewTarget._id);
+      toast.success("Maintenance plan renewed");
       setRenewTarget(null);
       refetch();
     } catch (err) {
@@ -213,56 +197,25 @@ export default function SubscriptionsPage() {
     }
   };
 
-  const handleSuspend = async () => {
-    if (!suspendTarget) return;
-    setActionSubmitting(true);
-    try {
-      await subscriptionService.suspend(suspendTarget._id);
-      toast.success("Subscription suspended");
-      setSuspendTarget(null);
-      refetch();
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  const openEdit = (row: Subscription) => {
+  const openEdit = (row: MaintenanceSubscription) => {
     setEditTarget(row);
-    const clientId = idOf(row.clientId);
     setEditForm({
-      clientId,
-      projectId: idOf(row.projectId),
-      planId: idOf(row.planId),
-      startDate: toDateInputValue(row.startDate),
-      gracePeriodDays: row.gracePeriodDays ?? 7,
       autoRenew: String(row.autoRenew),
       status: row.status,
       notes: row.notes || "",
     });
-    fetchProjectsForClient(clientId, setEditProjectOptions);
   };
 
   const handleEditSubmit = async () => {
     if (!editTarget) return;
-    if (!editForm.clientId || !editForm.projectId || !editForm.planId) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
     setEditSubmitting(true);
     try {
-      await subscriptionService.update(editTarget._id, {
-        clientId: editForm.clientId,
-        projectId: editForm.projectId,
-        planId: editForm.planId,
-        startDate: editForm.startDate,
-        gracePeriodDays: editForm.gracePeriodDays,
+      await maintenanceService.update(editTarget._id, {
         autoRenew: editForm.autoRenew === "true",
         status: editForm.status,
         notes: editForm.notes,
       });
-      toast.success("Subscription updated successfully");
+      toast.success("Maintenance subscription updated");
       setEditTarget(null);
       refetch();
     } catch (err) {
@@ -276,10 +229,10 @@ export default function SubscriptionsPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await subscriptionService.remove(deleteTarget._id);
-      toast.success("Subscription deleted successfully");
+      await maintenanceService.remove(deleteTarget._id);
+      toast.success("Maintenance subscription deleted");
       setDeleteTarget(null);
-      if (subscriptions.length === 1 && page > 1) {
+      if (maintenanceSubscriptions.length === 1 && page > 1) {
         setPage(page - 1);
       } else {
         refetch();
@@ -291,11 +244,23 @@ export default function SubscriptionsPage() {
     }
   };
 
-  const columns: Column<Subscription>[] = [
-    { header: "ID", render: (row) => <span className="font-mono text-xs">{row.subscriptionId}</span> },
+  const columns: Column<MaintenanceSubscription>[] = [
+    { header: "ID", render: (row) => <span className="font-mono text-xs">{row.maintenanceSubscriptionId}</span> },
     { header: "Client", primary: true, render: (row) => nameOf<Client>(row.clientId, (c) => c.companyName) },
     { header: "Project", render: (row) => nameOf<Project>(row.projectId, (p) => p.projectName) },
-    { header: "Plan", render: (row) => nameOf<Plan>(row.planId, (p) => p.name) },
+    {
+      header: "Plan",
+      render: (row) => {
+        const plan = typeof row.maintenancePlanId === "object" ? row.maintenancePlanId : null;
+        return plan ? (
+          <span>
+            {plan.name} {plan.isFree && <span className="text-xs text-emerald-600">(Free)</span>}
+          </span>
+        ) : (
+          "-"
+        );
+      },
+    },
     {
       header: "Expiry",
       render: (row) => {
@@ -303,10 +268,7 @@ export default function SubscriptionsPage() {
         return (
           <div>
             <div>{formatDate(row.expiryDate)}</div>
-            <div
-              className={`text-xs ${days <= 7 ? "font-medium text-red-500" : days <= 30 ? "text-amber-500" : "text-slate-500"
-                }`}
-            >
+            <div className={`text-xs ${days <= 7 ? "font-medium text-red-500" : days <= 30 ? "text-amber-500" : "text-slate-500"}`}>
               {days > 0 ? `${days} days left` : "Expired"}
             </div>
           </div>
@@ -321,11 +283,6 @@ export default function SubscriptionsPage() {
       render: (row) => (
         <RowActions>
           <RegenerateAction title="Renew" onClick={() => setRenewTarget(row)} disabled={row.status === "cancelled"} />
-          <CancelAction
-            title="Suspend"
-            onClick={() => setSuspendTarget(row)}
-            disabled={row.status === "suspended" || row.status === "cancelled"}
-          />
           <EditAction onClick={() => openEdit(row)} />
           <DeleteAction onClick={() => setDeleteTarget(row)} />
         </RowActions>
@@ -336,22 +293,22 @@ export default function SubscriptionsPage() {
   return (
     <div>
       <PageHeader
-        title="Subscriptions"
-        description="Manage client subscriptions"
+        title="Maintenance"
+        description="Track which projects have a maintenance plan assigned"
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => refetch()} title="Refresh">
               <FiRefreshCw className="h-4 w-4" />
             </Button>
             <Button icon={<FiPlus className="h-4 w-4" />} onClick={() => setIsDialogOpen(true)}>
-              New Subscription
+              Assign Maintenance Plan
             </Button>
           </div>
         }
       />
 
       <Card className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search subscriptions..." />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search maintenance subscriptions..." />
         <Select
           options={STATUS_FILTER_OPTIONS}
           value={statusFilter}
@@ -363,13 +320,13 @@ export default function SubscriptionsPage() {
 
       <Table
         columns={columns}
-        data={subscriptions}
+        data={maintenanceSubscriptions}
         loading={loading}
         keyField={(row) => row._id}
-        emptyMessage="No subscriptions found"
+        emptyMessage="No maintenance plans assigned yet"
         pagination={{ currentPage: page, totalPages: pages, onPageChange: setPage }}
         rowClassName={(row) => {
-          const health = subscriptionHealth(row);
+          const health = maintenanceHealth(row);
           if (health === "expired") return "bg-red-50/70 hover:bg-red-50";
           if (health === "critical") return "bg-amber-50/60 hover:bg-amber-50";
           return "";
@@ -379,7 +336,7 @@ export default function SubscriptionsPage() {
       <Dialog
         open={isDialogOpen}
         onClose={closeDialog}
-        title="Create Subscription"
+        title="Assign Maintenance Plan"
         size="lg"
         footer={
           <>
@@ -387,7 +344,7 @@ export default function SubscriptionsPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} loading={submitting}>
-              Create Subscription
+              Assign Plan
             </Button>
           </>
         }
@@ -399,7 +356,7 @@ export default function SubscriptionsPage() {
             value={formData.clientId}
             onChange={(e) => {
               setFormData({ ...formData, clientId: e.target.value, projectId: "" });
-              fetchProjectsForClient(e.target.value, setProjectOptions);
+              fetchProjectsForClient(e.target.value);
             }}
             required
           />
@@ -412,27 +369,17 @@ export default function SubscriptionsPage() {
             disabled={!formData.clientId}
           />
           <Select
-            label="Plan"
-            options={planOptions}
-            value={formData.planId}
-            onChange={(e) => setFormData({ ...formData, planId: e.target.value })}
+            label="Maintenance Plan"
+            options={maintenancePlanOptions}
+            value={formData.maintenancePlanId}
+            onChange={(e) => setFormData({ ...formData, maintenancePlanId: e.target.value })}
             required
+            wrapperClassName="sm:col-span-2"
           />
           <DatePicker
             label="Start Date"
             value={formData.startDate}
             onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-          />
-          <Input
-            label="Grace Period (days)"
-            type="number"
-            min={0}
-            inputMode="numeric"
-            value={formData.gracePeriodDays}
-            onChange={(e) => {
-              const digits = e.target.value.replace(/\D/g, "");
-              setFormData({ ...formData, gracePeriodDays: digits ? parseInt(digits, 10) : 0 });
-            }}
           />
         </div>
       </Dialog>
@@ -440,9 +387,8 @@ export default function SubscriptionsPage() {
       <Dialog
         open={!!editTarget}
         onClose={() => setEditTarget(null)}
-        title="Edit Subscription"
-        description={editTarget ? editTarget.subscriptionId : undefined}
-        size="lg"
+        title="Edit Maintenance Subscription"
+        description={editTarget ? editTarget.maintenanceSubscriptionId : undefined}
         footer={
           <>
             <Button variant="secondary" onClick={() => setEditTarget(null)} disabled={editSubmitting}>
@@ -454,48 +400,7 @@ export default function SubscriptionsPage() {
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Select
-            label="Client"
-            options={clientOptions}
-            value={editForm.clientId}
-            onChange={(e) => {
-              setEditForm({ ...editForm, clientId: e.target.value, projectId: "" });
-              fetchProjectsForClient(e.target.value, setEditProjectOptions);
-            }}
-            required
-          />
-          <Select
-            label="Project"
-            options={editProjectOptions}
-            value={editForm.projectId}
-            onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value })}
-            required
-            disabled={!editForm.clientId}
-          />
-          <Select
-            label="Plan"
-            options={planOptions}
-            value={editForm.planId}
-            onChange={(e) => setEditForm({ ...editForm, planId: e.target.value })}
-            required
-          />
-          <DatePicker
-            label="Start Date"
-            value={editForm.startDate}
-            onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
-          />
-          <Input
-            label="Grace Period (days)"
-            type="number"
-            min={0}
-            inputMode="numeric"
-            value={editForm.gracePeriodDays}
-            onChange={(e) => {
-              const digits = e.target.value.replace(/\D/g, "");
-              setEditForm({ ...editForm, gracePeriodDays: digits ? parseInt(digits, 10) : 0 });
-            }}
-          />
+        <div className="space-y-4">
           <Select
             label="Status"
             options={EDIT_STATUS_OPTIONS}
@@ -508,12 +413,7 @@ export default function SubscriptionsPage() {
             value={editForm.autoRenew}
             onChange={(e) => setEditForm({ ...editForm, autoRenew: e.target.value })}
           />
-          <Textarea
-            label="Notes"
-            className="sm:col-span-2"
-            value={editForm.notes}
-            onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-          />
+          <Textarea label="Notes" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
         </div>
       </Dialog>
 
@@ -521,21 +421,10 @@ export default function SubscriptionsPage() {
         open={!!renewTarget}
         onClose={() => setRenewTarget(null)}
         onConfirm={handleRenew}
-        title="Renew Subscription"
-        description={`Renew subscription ${renewTarget?.subscriptionId ?? ""} for another billing cycle?`}
+        title="Renew Maintenance Plan"
+        description={`Renew maintenance subscription ${renewTarget?.maintenanceSubscriptionId ?? ""} for another billing cycle?`}
         confirmLabel="Renew"
         variant="primary"
-        loading={actionSubmitting}
-      />
-
-      <ConfirmDialog
-        open={!!suspendTarget}
-        onClose={() => setSuspendTarget(null)}
-        onConfirm={handleSuspend}
-        title="Suspend Subscription"
-        description={`Suspend subscription ${suspendTarget?.subscriptionId ?? ""}? This immediately cuts off the client's access to the project until it is reactivated.`}
-        confirmLabel="Suspend"
-        variant="danger"
         loading={actionSubmitting}
       />
 
@@ -543,8 +432,8 @@ export default function SubscriptionsPage() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Subscription"
-        description={`Are you sure you want to delete subscription ${deleteTarget?.subscriptionId ?? ""}? This does not affect its payment history. This action cannot be undone.`}
+        title="Delete Maintenance Subscription"
+        description={`Are you sure you want to delete maintenance subscription ${deleteTarget?.maintenanceSubscriptionId ?? ""}? This action cannot be undone.`}
         confirmLabel="Delete"
         loading={deleting}
       />

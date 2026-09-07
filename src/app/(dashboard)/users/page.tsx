@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FiPlus } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -47,6 +47,9 @@ export default function UsersPage() {
   const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState<UserFormData>(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Guards against an older, slower request resolving after a newer one and
+  // overwriting fresher state with stale results.
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     fetchUsers();
@@ -54,14 +57,17 @@ export default function UsersPage() {
   }, []);
 
   const fetchUsers = async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
       const res = await userService.list();
+      if (requestId !== requestIdRef.current) return; // a newer request has since started — discard this one
       setUsers((res.data as { users: User[] }).users ?? []);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       toast.error(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 

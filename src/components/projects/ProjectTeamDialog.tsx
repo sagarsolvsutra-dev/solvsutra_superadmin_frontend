@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiUsers,
   FiCalendar,
@@ -12,7 +12,7 @@ import {
   FiAlertOctagon,
   FiLoader,
 } from "react-icons/fi";
-import { Dialog, Button, Input, Select, Textarea, Badge, useToast, ConfirmDialog } from "@/components/ui";
+import { Dialog, Button, Input, Select, Textarea, Badge, useToast, ConfirmDialog, DatePicker } from "@/components/ui";
 import { getErrorMessage } from "@/lib/api";
 import {
   projectTeamService,
@@ -80,6 +80,7 @@ export function ProjectTeamDialog({ open, onClose, projectId, projectName, onCha
     allocationPercent: "100",
     notes: "",
   });
+  const [staffFormErrors, setStaffFormErrors] = useState<{ allocationPercent?: string }>({});
   const [editingAssignment, setEditingAssignment] = useState<ProjectAssignment | null>(null);
 
   // milestone form
@@ -93,33 +94,49 @@ export function ProjectTeamDialog({ open, onClose, projectId, projectName, onCha
 
   const [confirm, setConfirm] = useState<{ kind: Tab; id: string; label: string } | null>(null);
 
-  const load = useCallback(async () => {
-    if (!projectId) return;
-    setLoading(true);
-    try {
-      const [staffRes, msRes] = await Promise.all([
-        projectTeamService.listStaff(projectId),
-        projectTeamService.listMilestones(projectId),
-      ]);
-      setStaff(staffRes.assignments || []);
-      setMilestones(msRes.milestones || []);
-      setProgress(msRes.progress || 0);
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, toast]);
+  // This dialog is a controlled component reused across different project
+  // rows (opened/closed via `open`/`projectId` changing, without unmounting).
+  // Guard every fetch that a prop change can trigger against a slower,
+  // now-stale response landing after a newer one — otherwise closing project
+  // A's dialog and quickly opening B's can let A's response silently
+  // overwrite B's state once it finally resolves.
+  const requestIdRef = useRef(0);
+
+  const load = useCallback(
+    async (requestId?: number) => {
+      if (!projectId) return;
+      const id = requestId ?? ++requestIdRef.current;
+      setLoading(true);
+      try {
+        const [staffRes, msRes] = await Promise.all([
+          projectTeamService.listStaff(projectId),
+          projectTeamService.listMilestones(projectId),
+        ]);
+        if (id !== requestIdRef.current) return; // a newer request has since started — discard this one
+        setStaff(staffRes.assignments || []);
+        setMilestones(msRes.milestones || []);
+        setProgress(msRes.progress || 0);
+      } catch (err) {
+        if (id !== requestIdRef.current) return;
+        toast.error(getErrorMessage(err));
+      } finally {
+        if (id === requestIdRef.current) setLoading(false);
+      }
+    },
+    [projectId, toast]
+  );
 
   useEffect(() => {
     if (!open || !projectId) return;
-    load();
+    const requestId = ++requestIdRef.current;
+    load(requestId);
     // NOTE: userService.list returns the raw axios response (it does not go
     // through normalizeList like the other services), so the array lives at
     // res.data.users — not res.items.
     userService
       .list({ limit: 100 })
       .then((res: any) => {
+        if (requestId !== requestIdRef.current) return;
         const list = res?.data?.users ?? res?.data?.items ?? [];
         setUsers(list);
         if (list.length === 0) {
@@ -127,6 +144,7 @@ export function ProjectTeamDialog({ open, onClose, projectId, projectName, onCha
         }
       })
       .catch((err) => {
+        if (requestId !== requestIdRef.current) return;
         setUsers([]);
         toast.error(getErrorMessage(err));
       });
@@ -146,6 +164,7 @@ export function ProjectTeamDialog({ open, onClose, projectId, projectName, onCha
   const resetStaffForm = () => {
     setEditingAssignment(null);
     setStaffForm({ userId: "", role: "developer", allocationPercent: "100", notes: "" });
+    setStaffFormErrors({});
   };
 
   const resetMsForm = () => {
@@ -164,12 +183,22 @@ export function ProjectTeamDialog({ open, onClose, projectId, projectName, onCha
       toast.error("Select a staff member");
       return;
     }
+    const allocationPercent = Number(staffForm.allocationPercent);
+    if (staffForm.allocationPercent.trim() === "" || Number.isNaN(allocationPercent)) {
+      setStaffFormErrors({ allocationPercent: "Enter a number" });
+      return;
+    }
+    if (allocationPercent < 0 || allocationPercent > 100) {
+      setStaffFormErrors({ allocationPercent: "Must be between 0 and 100" });
+      return;
+    }
+    setStaffFormErrors({});
     setSaving(true);
     try {
       const payload = {
         userId: editingAssignment?.userId?._id || staffForm.userId,
         role: staffForm.role,
-        allocationPercent: Number(staffForm.allocationPercent) || 0,
+        allocationPercent,
         notes: staffForm.notes,
       };
       if (editingAssignment) {
@@ -322,10 +351,12 @@ export function ProjectTeamDialog({ open, onClose, projectId, projectName, onCha
                   type="number"
                   min={0}
                   max={100}
+                  error={staffFormErrors.allocationPercent}
                   value={staffForm.allocationPercent}
-                  onChange={(e) =>
-                    setStaffForm({ ...staffForm, allocationPercent: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setStaffForm({ ...staffForm, allocationPercent: e.target.value });
+                    if (staffFormErrors.allocationPercent) setStaffFormErrors({});
+                  }}
                 />
                 <Input
                   label="Notes"
@@ -384,6 +415,7 @@ export function ProjectTeamDialog({ open, onClose, projectId, projectName, onCha
                             allocationPercent: String(a.allocationPercent),
                             notes: a.notes || "",
                           });
+                          setStaffFormErrors({});
                         }}
                         className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         title="Edit"
@@ -437,9 +469,8 @@ export function ProjectTeamDialog({ open, onClose, projectId, projectName, onCha
                   placeholder="e.g. Design approved"
                   required
                 />
-                <Input
+                <DatePicker
                   label="Date"
-                  type="date"
                   value={msForm.date}
                   onChange={(e) => setMsForm({ ...msForm, date: e.target.value })}
                 />

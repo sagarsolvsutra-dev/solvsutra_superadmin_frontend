@@ -34,6 +34,17 @@
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
   }
+
+  button,
+  a,
+  select,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    cursor: pointer;
+  }
 }
 
 /* Custom scrollbar */

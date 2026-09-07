@@ -3,6 +3,7 @@ export * from "./Input";
 export * from "./PasswordInput";
 export * from "./Textarea";
 export * from "./Select";
+export * from "./DatePicker";
 export * from "./Table";
 export * from "./Dialog";
 export * from "./ConfirmDialog";

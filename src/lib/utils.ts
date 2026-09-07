@@ -74,3 +74,17 @@ export function subscriptionHealth(sub: {
 
   return daysUntil(sub.expiryDate) <= 7 ? "critical" : null;
 }
+
+/** Same idea as `subscriptionHealth`, for MaintenanceSubscription — there's
+ * no grace period on this one (see the model), so past expiry is simply
+ * "expired", and `expiryCron.js`'s daily sweep is the only thing that would
+ * otherwise flip `status`, with the same staleness problem in between runs. */
+export function maintenanceHealth(sub: { status: string; expiryDate: string }): "expired" | "critical" | null {
+  if (sub.status === "cancelled") return "expired";
+
+  const now = Date.now();
+  const expiry = new Date(sub.expiryDate).getTime();
+  if (now > expiry) return "expired";
+
+  return daysUntil(sub.expiryDate) <= 7 ? "critical" : null;
+}

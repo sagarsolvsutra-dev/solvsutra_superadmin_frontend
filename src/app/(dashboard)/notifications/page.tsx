@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { FiBell, FiCheck, FiCheckCircle, FiAlertTriangle, FiXCircle, FiRefreshCw, FiEye, FiTrash2 } from "react-icons/fi";
+import { FiBell, FiCheck, FiCheckCircle, FiAlertTriangle, FiXCircle, FiRefreshCw, FiEye, FiTrash2, FiTool } from "react-icons/fi";
 import { notificationService } from "@/services/notification.service";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
@@ -25,23 +25,26 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; iconClass: string; 
   subscription_created: { icon: FiCheckCircle, iconClass: "text-emerald-500", bgClass: "bg-emerald-50" },
   subscription_suspended: { icon: FiAlertTriangle, iconClass: "text-red-500", bgClass: "bg-red-50" },
   suspension: { icon: FiAlertTriangle, iconClass: "text-red-500", bgClass: "bg-red-50" },
+  maintenance_expired: { icon: FiTool, iconClass: "text-red-500", bgClass: "bg-red-50" },
 };
 
 const DEFAULT_TYPE_CONFIG = { icon: FiBell, iconClass: "text-sky-500", bgClass: "bg-sky-50" };
 
 // Types that also get a status-style badge next to the title, matching what
 // the original page called out as "expiry related" notifications.
-const EXPIRY_TYPES = new Set(["expiry_warning", "expired", "suspension"]);
+const EXPIRY_TYPES = new Set(["expiry_warning", "expired", "suspension", "subscription_suspended", "maintenance_expired"]);
 
 const TYPE_LABEL: Record<string, string> = {
   expiry_warning: "Expiry Warning",
   expired: "Expired",
   suspension: "Suspended",
+  subscription_suspended: "Subscription Suspended",
+  maintenance_expired: "Maintenance Expired",
 };
 
 function typeBadgeTone(type: string): "danger" | "warning" | "neutral" {
-  if (type === "expired") return "danger";
-  if (type === "suspension") return "warning";
+  if (type === "expired" || type === "maintenance_expired") return "danger";
+  if (type === "suspension" || type === "subscription_suspended") return "warning";
   return "neutral";
 }
 
@@ -119,7 +122,11 @@ export default function NotificationsPage() {
       if (!deleteTarget.isRead) setUnreadCount((c) => Math.max(0, c - 1));
       toast.success("Notification deleted");
       setDeleteTarget(null);
-      await refetch();
+      if (items.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        await refetch();
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {

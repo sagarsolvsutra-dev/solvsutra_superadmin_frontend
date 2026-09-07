@@ -14,3 +14,5 @@ export * from "./domain.service";
 export * from "./user.service";
 export * from "./employee.service";
 export * from "./dashboard.service";
+export * from "./maintenancePlan.service";
+export * from "./maintenance.service";

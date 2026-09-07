@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FiPlus } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Dialog } from "@/components/ui/Dialog";
@@ -81,7 +82,8 @@ export default function EmployeesPage() {
         const users = (res.data as { users: User[] }).users ?? [];
         setUserOptions(users.map((u) => ({ label: `${u.name} (${u.email})`, value: u._id })));
       })
-      .catch(() => {});
+      .catch((err) => toast.error(getErrorMessage(err)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -158,7 +160,11 @@ export default function EmployeesPage() {
       await employeeService.remove(deleteTarget._id);
       toast.success("Employee deleted successfully");
       setDeleteTarget(null);
-      refetch();
+      if (items.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        refetch();
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -291,9 +297,8 @@ export default function EmployeesPage() {
             value={formData.department}
             onChange={(e) => setFormData({ ...formData, department: e.target.value })}
           />
-          <Input
+          <DatePicker
             label="Join Date"
-            type="date"
             value={formData.joinDate}
             onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
           />

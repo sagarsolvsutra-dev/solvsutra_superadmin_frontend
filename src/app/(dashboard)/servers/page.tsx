@@ -116,7 +116,11 @@ export default function ServersPage() {
       toast.success("Server deleted");
       setIsDeleteOpen(false);
       setSelectedServer(null);
-      refetch();
+      if (servers.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        refetch();
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -173,9 +177,10 @@ export default function ServersPage() {
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={selectedServer ? "Edit Server" : "Add Server"}
+        preventCloseWhileBusy={submitting}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={submitting}>
               Cancel
             </Button>
             <Button onClick={handleSubmit} loading={submitting}>

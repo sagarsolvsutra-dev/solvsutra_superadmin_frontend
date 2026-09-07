@@ -8,17 +8,26 @@ import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Alert } from "@/components/ui/Alert";
 import { useAuth } from "@/hooks/useAuth";
+import { useAuthStore } from "@/store/authStore";
 import { getErrorMessage } from "@/lib/api";
 import { HEALTH_CHECK } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const { token, isHydrated } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking");
+
+  // Mirrors app/page.tsx's redirect: a logged-in user landing here (bookmark,
+  // back-button) should be sent straight to the dashboard, not shown the form.
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (token) router.replace("/dashboard");
+  }, [isHydrated, token, router]);
 
   useEffect(() => {
     fetch(HEALTH_CHECK)

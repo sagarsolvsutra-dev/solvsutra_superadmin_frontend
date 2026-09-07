@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FiPlus, FiEye, FiCalendar, FiCreditCard, FiAlertCircle } from "react-icons/fi";
+import { FiPlus, FiEye, FiCalendar, FiCreditCard, FiAlertCircle, FiTool, FiToggleLeft, FiToggleRight } from "react-icons/fi";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Table, type Column } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Dialog } from "@/components/ui/Dialog";
@@ -23,8 +24,10 @@ import { getErrorMessage } from "@/lib/api";
 import { clientService } from "@/services/client.service";
 import { projectService } from "@/services/project.service";
 import { subscriptionService } from "@/services/subscription.service";
+import { maintenanceService } from "@/services/maintenance.service";
+import { maintenancePlanService } from "@/services/maintenancePlan.service";
 import { cn, daysUntil, formatCurrency, formatDate, subscriptionHealth } from "@/lib/utils";
-import type { Client, Plan, Project, Subscription } from "@/types";
+import type { Client, MaintenancePlan, Plan, Project, ProjectMaintenanceStatus, Subscription } from "@/types";
 
 const statusFilterOptions = [
   { value: "", label: "All Status" },
@@ -64,6 +67,24 @@ type ProjectForm = typeof emptyForm;
 const clientName = (clientId: Project["clientId"]) => (typeof clientId === "object" && clientId ? clientId.companyName : "-");
 const clientIdValue = (clientId: Project["clientId"]) => (typeof clientId === "object" && clientId ? clientId._id : (clientId as string) || "");
 
+// Prefer a non-cancelled subscription over a cancelled one, then the more
+// recently started of two equally-ranked candidates. Shared by the
+// subscription-health map (table) and the "View details" dialog so the two
+// views can never disagree about which subscription is "the" one for a
+// project.
+const subscriptionRank = (sub: Subscription) => (sub.status === "cancelled" ? 0 : 1);
+function preferSubscription(a: Subscription, b: Subscription): Subscription {
+  const rankA = subscriptionRank(a);
+  const rankB = subscriptionRank(b);
+  if (rankB > rankA) return b;
+  if (rankB === rankA && new Date(b.startDate) > new Date(a.startDate)) return b;
+  return a;
+}
+
+// A flat fetch with no pagination fallback silently truncates past this many
+// rows — this is a cheap "there might be more" signal, not a hard cap.
+const DROPDOWN_FETCH_LIMIT = 200;
+
 export default function ProjectsPage() {
   const toast = useToast();
   const [search, setSearch] = useState("");
@@ -77,10 +98,20 @@ export default function ProjectsPage() {
   });
 
   const [clients, setClients] = useState<Client[]>([]);
+  const [clientsTruncated, setClientsTruncated] = useState(false);
   useEffect(() => {
     clientService
-      .list({ limit: 200 })
-      .then((res) => setClients(res.data.items))
+      .list({ limit: DROPDOWN_FETCH_LIMIT })
+      .then((res) => {
+        setClients(res.data.items);
+        const hitLimit = res.data.items.length === DROPDOWN_FETCH_LIMIT;
+        setClientsTruncated(hitLimit);
+        if (hitLimit) {
+          console.warn(
+            `[ProjectsPage] client dropdown fetch returned exactly ${DROPDOWN_FETCH_LIMIT} rows — there may be more clients that are not shown.`
+          );
+        }
+      })
       .catch(() => { });
   }, []);
   const clientOptions = clients.map((c) => ({ label: c.companyName, value: c._id }));
@@ -91,24 +122,19 @@ export default function ProjectsPage() {
   const [subscriptionsByProject, setSubscriptionsByProject] = useState<Record<string, Subscription>>({});
   useEffect(() => {
     subscriptionService
-      .list({ limit: 200 })
+      .list({ limit: DROPDOWN_FETCH_LIMIT })
       .then((res) => {
+        if (res.data.items.length === DROPDOWN_FETCH_LIMIT) {
+          console.warn(
+            `[ProjectsPage] subscription-health fetch returned exactly ${DROPDOWN_FETCH_LIMIT} rows — there may be more subscriptions that are not reflected in the table's health indicator.`
+          );
+        }
         const map: Record<string, Subscription> = {};
         for (const sub of res.data.items) {
           const pid = typeof sub.projectId === "object" ? sub.projectId._id : sub.projectId;
           if (!pid) continue;
           const existing = map[pid];
-          if (!existing) {
-            map[pid] = sub;
-            continue;
-          }
-          // Prefer a non-cancelled subscription over a cancelled one, then the
-          // more recently started of two equally-ranked candidates.
-          const existingRank = existing.status === "cancelled" ? 0 : 1;
-          const subRank = sub.status === "cancelled" ? 0 : 1;
-          if (subRank > existingRank || (subRank === existingRank && new Date(sub.startDate) > new Date(existing.startDate))) {
-            map[pid] = sub;
-          }
+          map[pid] = existing ? preferSubscription(existing, sub) : sub;
         }
         setSubscriptionsByProject(map);
       })
@@ -136,6 +162,14 @@ export default function ProjectsPage() {
 
   const [regenerateTarget, setRegenerateTarget] = useState<Project | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+
+  const [maintenanceStatus, setMaintenanceStatus] = useState<ProjectMaintenanceStatus | null>(null);
+  const [loadingMaintenance, setLoadingMaintenance] = useState(false);
+  const [togglingMaintenance, setTogglingMaintenance] = useState(false);
+  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>([]);
+  const [isSellMaintenanceOpen, setIsSellMaintenanceOpen] = useState(false);
+  const [sellForm, setSellForm] = useState({ maintenancePlanId: "", startDate: new Date().toISOString().slice(0, 10) });
+  const [sellingMaintenance, setSellingMaintenance] = useState(false);
 
   const openCreate = () => {
     setSelectedProject(null);
@@ -202,7 +236,11 @@ export default function ProjectsPage() {
       await projectService.remove(deleteTarget._id);
       toast.success("Project deleted successfully");
       setDeleteTarget(null);
-      refetch();
+      if (items.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        refetch();
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -216,12 +254,80 @@ export default function ProjectsPage() {
     setProjectSubscription(null);
     setLoadingSubscription(true);
     try {
-      const res = await subscriptionService.list({ projectId: project._id, limit: 1 });
-      setProjectSubscription(res.data.items[0] || null);
+      // Fetch every subscription for this project and rank with the same
+      // comparator the table uses, so this panel can never disagree with the
+      // health indicator shown in the row the user clicked "View details" from.
+      const res = await subscriptionService.list({ projectId: project._id, limit: DROPDOWN_FETCH_LIMIT });
+      const items = res.data.items;
+      setProjectSubscription(items.length ? items.reduce(preferSubscription) : null);
     } catch {
       // No subscription yet for this project — leave the panel showing the empty state.
     } finally {
       setLoadingSubscription(false);
+    }
+    loadMaintenanceStatus(project._id);
+  };
+
+  const loadMaintenanceStatus = async (projectId: string) => {
+    setMaintenanceStatus(null);
+    setLoadingMaintenance(true);
+    try {
+      const res = await maintenanceService.projectStatus(projectId);
+      setMaintenanceStatus(res.data);
+    } catch {
+      // Leave it null — the card shows nothing rather than a stale state.
+    } finally {
+      setLoadingMaintenance(false);
+    }
+  };
+
+  const handleToggleMaintenance = async () => {
+    if (!detailsProject || !maintenanceStatus) return;
+    setTogglingMaintenance(true);
+    try {
+      const res = await maintenanceService.toggleProjectMaintenance(detailsProject._id, !maintenanceStatus.maintenanceRequired);
+      setMaintenanceStatus(res.data);
+      toast.success(res.data.maintenanceRequired ? "Maintenance prompt turned on for this project" : "Maintenance prompt turned off");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setTogglingMaintenance(false);
+    }
+  };
+
+  const openSellMaintenance = () => {
+    setSellForm({ maintenancePlanId: "", startDate: new Date().toISOString().slice(0, 10) });
+    setIsSellMaintenanceOpen(true);
+    if (maintenancePlans.length === 0) {
+      maintenancePlanService
+        .list({ limit: 50, status: "active" })
+        .then((res) => setMaintenancePlans(res.data.items))
+        .catch(() => {});
+    }
+  };
+
+  const handleSellMaintenance = async () => {
+    if (!detailsProject) return;
+    if (!sellForm.maintenancePlanId) {
+      toast.error("Select a maintenance plan");
+      return;
+    }
+    const clientIdVal = clientIdValue(detailsProject.clientId);
+    setSellingMaintenance(true);
+    try {
+      await maintenanceService.create({
+        clientId: clientIdVal,
+        projectId: detailsProject._id,
+        maintenancePlanId: sellForm.maintenancePlanId,
+        startDate: sellForm.startDate,
+      });
+      toast.success("Maintenance plan recorded for this project");
+      setIsSellMaintenanceOpen(false);
+      loadMaintenanceStatus(detailsProject._id);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSellingMaintenance(false);
     }
   };
 
@@ -393,9 +499,10 @@ export default function ProjectsPage() {
         onClose={() => setIsDialogOpen(false)}
         title={selectedProject ? "Edit Project" : "Add Project"}
         size="lg"
+        preventCloseWhileBusy={submitting}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={submitting}>
               Cancel
             </Button>
             <Button onClick={handleSubmit} loading={submitting}>
@@ -409,6 +516,7 @@ export default function ProjectsPage() {
             label="Client"
             required
             error={errors.clientId}
+            hint={clientsTruncated ? `Showing first ${DROPDOWN_FETCH_LIMIT} clients — search isn't available here yet.` : undefined}
             placeholder="Select client"
             options={clientOptions}
             value={formData.clientId}
@@ -631,6 +739,65 @@ export default function ProjectsPage() {
               )}
             </div>
 
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <FiTool size={16} className="text-slate-500" /> Maintenance
+              </h3>
+
+              {loadingMaintenance ? (
+                <div className="space-y-2">
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+                  <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
+                </div>
+              ) : !maintenanceStatus ? (
+                <p className="text-sm text-slate-500">Could not load maintenance status.</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-slate-600">
+                      Show the &ldquo;maintenance plan required&rdquo; prompt to this client
+                    </p>
+                    <button
+                      onClick={handleToggleMaintenance}
+                      disabled={togglingMaintenance}
+                      title="Show/hide the 'maintenance plan required' prompt for this project"
+                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                    >
+                      {maintenanceStatus.maintenanceRequired ? (
+                        <FiToggleRight className="h-5 w-5 text-brand-600" />
+                      ) : (
+                        <FiToggleLeft className="h-5 w-5 text-slate-400" />
+                      )}
+                      Show prompt
+                    </button>
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-3">
+                    {maintenanceStatus.activeMaintenanceSubscription ? (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">
+                            {maintenanceStatus.activeMaintenanceSubscription.maintenancePlanId.name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Active until {formatDate(maintenanceStatus.activeMaintenanceSubscription.expiryDate)}
+                          </p>
+                        </div>
+                        <StatusBadge status={maintenanceStatus.activeMaintenanceSubscription.status} />
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-slate-500">No maintenance plan purchased yet</p>
+                        <Button size="sm" variant="outline" onClick={openSellMaintenance}>
+                          Assign Maintenance Plan
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {(detailsProject.frontendUrl || detailsProject.adminUrl || detailsProject.backendUrl) && (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <h3 className="mb-3 text-sm font-semibold text-slate-900">URLs</h3>
@@ -685,6 +852,42 @@ export default function ProjectsPage() {
         description={`This will generate a new API key for "${regenerateTarget?.projectName}". The existing key will stop working immediately. This action cannot be undone.`}
         confirmLabel="Regenerate"
       />
+      <Dialog
+        open={isSellMaintenanceOpen}
+        onClose={() => setIsSellMaintenanceOpen(false)}
+        title="Assign Maintenance Plan"
+        preventCloseWhileBusy={sellingMaintenance}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsSellMaintenanceOpen(false)} disabled={sellingMaintenance}>
+              Cancel
+            </Button>
+            <Button onClick={handleSellMaintenance} loading={sellingMaintenance}>
+              Assign Plan
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Select
+            label="Maintenance Plan"
+            required
+            placeholder="Select a maintenance plan"
+            options={maintenancePlans.map((p) => ({
+              label: `${p.name} — ${p.isFree ? "Free" : formatCurrency(p.price)}/${p.durationUnit}`,
+              value: p._id,
+            }))}
+            value={sellForm.maintenancePlanId}
+            onChange={(e) => setSellForm({ ...sellForm, maintenancePlanId: e.target.value })}
+          />
+          <DatePicker
+            label="Start Date"
+            value={sellForm.startDate}
+            onChange={(e) => setSellForm({ ...sellForm, startDate: e.target.value })}
+          />
+        </div>
+      </Dialog>
+
       <ProjectTeamDialog
         open={!!teamTarget}
         onClose={() => setTeamTarget(null)}

@@ -8,11 +8,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Table, Column } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
-import { StatusBadge } from "@/components/ui/Badge";
+import { StatusBadge, Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
 import { RowActions, ViewAction } from "@/components/ui/RowActions";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import type { Payment, Client, Project, Plan, Subscription } from "@/types";
+import type { Payment, Client, Project, Plan, Subscription, MaintenancePlan, MaintenanceSubscription } from "@/types";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
@@ -32,8 +32,26 @@ function asProject(v: Payment["projectId"]): Project | null {
 function asPlan(v: Payment["planId"]): Plan | null {
   return typeof v === "object" && v ? v : null;
 }
+function asMaintenancePlan(v: Payment["maintenancePlanId"]): MaintenancePlan | null {
+  return typeof v === "object" && v ? v : null;
+}
 function asSubscription(v: Payment["subscriptionId"]): Subscription | null {
   return typeof v === "object" && v ? v : null;
+}
+function asMaintenanceSubscription(v: Payment["maintenanceSubscriptionId"]): MaintenanceSubscription | null {
+  return typeof v === "object" && v ? v : null;
+}
+// If the backend ever sends an unpopulated ref, fall back to the raw id
+// string rather than a bare dash — matches subscriptions/page.tsx's
+// `nameOf<T>()` helper so both pages behave the same way in that case.
+function planName(row: Payment): string {
+  return (
+    asPlan(row.planId)?.name ??
+    (typeof row.planId === "string" ? row.planId : undefined) ??
+    asMaintenancePlan(row.maintenancePlanId)?.name ??
+    (typeof row.maintenancePlanId === "string" ? row.maintenancePlanId : undefined) ??
+    "-"
+  );
 }
 
 function formatAmount(amount: number, currency = "INR") {
@@ -76,7 +94,17 @@ export default function PaymentsPage() {
     },
     { header: "Client", render: (row) => asClient(row.clientId)?.companyName ?? "-" },
     { header: "Project", render: (row) => asProject(row.projectId)?.projectName ?? "-" },
-    { header: "Plan", render: (row) => asPlan(row.planId)?.name ?? "-" },
+    {
+      header: "Plan",
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <span>{planName(row)}</span>
+          <Badge tone={asMaintenancePlan(row.maintenancePlanId) ? "info" : "neutral"}>
+            {asMaintenancePlan(row.maintenancePlanId) ? "Maintenance" : "Subscription"}
+          </Badge>
+        </div>
+      ),
+    },
     {
       header: "Amount",
       align: "right",
@@ -99,8 +127,8 @@ export default function PaymentsPage() {
 
   const viewClient = viewPayment ? asClient(viewPayment.clientId) : null;
   const viewProject = viewPayment ? asProject(viewPayment.projectId) : null;
-  const viewPlan = viewPayment ? asPlan(viewPayment.planId) : null;
   const viewSubscription = viewPayment ? asSubscription(viewPayment.subscriptionId) : null;
+  const viewMaintenanceSubscription = viewPayment ? asMaintenanceSubscription(viewPayment.maintenanceSubscriptionId) : null;
 
   return (
     <div>
@@ -145,10 +173,30 @@ export default function PaymentsPage() {
           <div className="space-y-3 text-sm">
             <DetailRow label="Client" value={viewClient?.companyName ?? "-"} />
             <DetailRow label="Project" value={viewProject?.projectName ?? "-"} />
-            <DetailRow label="Plan" value={viewPlan?.name ?? "-"} />
+            <DetailRow
+              label="Plan"
+              value={
+                viewPayment ? (
+                  <span className="flex items-center gap-2">
+                    <span>{planName(viewPayment)}</span>
+                    <Badge tone={asMaintenancePlan(viewPayment.maintenancePlanId) ? "info" : "neutral"}>
+                      {asMaintenancePlan(viewPayment.maintenancePlanId) ? "Maintenance" : "Subscription"}
+                    </Badge>
+                  </span>
+                ) : (
+                  "-"
+                )
+              }
+            />
             <DetailRow
               label="Subscription"
-              value={viewSubscription?.subscriptionId ?? (typeof viewPayment.subscriptionId === "string" ? viewPayment.subscriptionId : "-")}
+              value={
+                viewSubscription?.subscriptionId ??
+                (typeof viewPayment.subscriptionId === "string" ? viewPayment.subscriptionId : undefined) ??
+                viewMaintenanceSubscription?.maintenanceSubscriptionId ??
+                (typeof viewPayment.maintenanceSubscriptionId === "string" ? viewPayment.maintenanceSubscriptionId : undefined) ??
+                "-"
+              }
             />
             <DetailRow label="Amount" value={formatAmount(viewPayment.amount, viewPayment.currency)} />
             <DetailRow label="Status" value={<StatusBadge status={viewPayment.status} />} />

@@ -80,6 +80,17 @@ export const API_ENDPOINTS = {
   EMPLOYEES: "/employees",
   EMPLOYEE_BY_ID: (id: string) => `/employees/${id}`,
 
+  // Maintenance plans
+  MAINTENANCE_PLANS: "/maintenance-plans",
+  MAINTENANCE_PLAN_BY_ID: (id: string) => `/maintenance-plans/${id}`,
+
+  // Maintenance subscriptions + per-project maintenance status
+  MAINTENANCE_SUBSCRIPTIONS: "/maintenance-subscriptions",
+  MAINTENANCE_SUBSCRIPTION_BY_ID: (id: string) => `/maintenance-subscriptions/${id}`,
+  MAINTENANCE_SUBSCRIPTION_RENEW: (id: string) => `/maintenance-subscriptions/${id}/renew`,
+  PROJECT_MAINTENANCE_STATUS: (projectId: string) => `/maintenance-subscriptions/project/${projectId}`,
+  PROJECT_MAINTENANCE_TOGGLE: (projectId: string) => `/maintenance-subscriptions/project/${projectId}/toggle`,
+
   // Dashboard
   DASHBOARD: "/dashboard",
   DASHBOARD_WIDGETS: "/dashboard/widgets",

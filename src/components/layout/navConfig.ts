@@ -10,6 +10,7 @@ import {
   FiUserCheck,
   FiBriefcase,
   FiBell,
+  FiTool,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 
@@ -38,7 +39,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Clients", href: "/clients", icon: FiUsers },
       { label: "Projects", href: "/projects", icon: FiFolder },
       { label: "Plans", href: "/plans", icon: FiLayers },
+      { label: "Maintenance Plans", href: "/maintenance-plans", icon: FiLayers },
       { label: "Subscriptions", href: "/subscriptions", icon: FiCreditCard },
+      { label: "Maintenance", href: "/maintenance", icon: FiTool },
       { label: "Payments", href: "/payments", icon: FiFileText },
     ],
   },

@@ -50,6 +50,7 @@ export interface Project {
   status: 'active' | 'inactive' | 'suspended';
   techStack?: string;
   domain?: string;
+  maintenanceRequired: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,13 +91,58 @@ export interface Subscription {
   updatedAt: string;
 }
 
+export interface MaintenancePlan {
+  _id: string;
+  maintenancePlanId: string;
+  name: string;
+  description?: string;
+  price: number;
+  currency: string;
+  duration: number;
+  durationUnit: 'day' | 'month' | 'year';
+  features: string[];
+  isFree: boolean;
+  status: 'active' | 'inactive';
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaintenanceSubscription {
+  _id: string;
+  maintenanceSubscriptionId: string;
+  clientId: string | Client;
+  projectId: string | Project;
+  maintenancePlanId: string | MaintenancePlan;
+  startDate: string;
+  expiryDate: string;
+  autoRenew: boolean;
+  status: 'active' | 'expired' | 'cancelled';
+  renewalCount: number;
+  lastRenewedAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectMaintenanceStatus {
+  maintenanceRequired: boolean;
+  activeMaintenanceSubscription: (MaintenanceSubscription & { maintenancePlanId: MaintenancePlan }) | null;
+  showPrompt: boolean;
+}
+
 export interface Payment {
   _id: string;
   paymentId: string;
   clientId: string | Client;
   projectId: string | Project;
-  subscriptionId: string | Subscription;
-  planId: string | Plan;
+  // Optional: a maintenance-plan payment sets maintenanceSubscriptionId /
+  // maintenancePlanId instead — the two pairs are mutually exclusive.
+  subscriptionId?: string | Subscription | null;
+  planId?: string | Plan | null;
+  maintenanceSubscriptionId?: string | MaintenanceSubscription | null;
+  maintenancePlanId?: string | MaintenancePlan | null;
+  paymentType?: string;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   amount: number;
@@ -115,7 +161,8 @@ export interface Notification {
   clientId?: string;
   projectId?: string;
   subscriptionId?: string;
-  type: 'expiry_warning' | 'expired' | 'payment_success' | 'payment_failed' | 'subscription_renewed' | 'subscription_created' | 'subscription_suspended' | 'suspension' | 'system';
+  maintenanceSubscriptionId?: string;
+  type: 'expiry_warning' | 'expired' | 'payment_success' | 'payment_failed' | 'subscription_renewed' | 'subscription_created' | 'subscription_suspended' | 'suspension' | 'maintenance_expired' | 'system';
   title: string;
   message: string;
   isRead: boolean;

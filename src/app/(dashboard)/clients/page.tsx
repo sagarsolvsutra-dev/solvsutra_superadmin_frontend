@@ -133,7 +133,11 @@ export default function ClientsPage() {
       await clientService.remove(deleteTarget._id);
       toast.success("Client deleted successfully");
       setDeleteTarget(null);
-      refetch();
+      if (items.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        refetch();
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {

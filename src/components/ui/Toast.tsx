@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { FiCheckCircle, FiXCircle, FiAlertTriangle, FiInfo, FiX } from "react-icons/fi";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +55,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const showToast = useCallback(
     (type: ToastType, message: string, title?: string) => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      setToasts((prev) => [...prev, { id, type, message, title }]);
+      // flushSync, not a plain setToasts: callers outside React's own event
+      // system (a socket.io message handler, in particular) can have their
+      // state update scheduled but never committed to the DOM before the
+      // page moves on — this forces the commit synchronously so a toast
+      // fired from a live push is guaranteed to actually paint.
+      flushSync(() => {
+        setToasts((prev) => [...prev, { id, type, message, title }]);
+      });
       window.setTimeout(() => remove(id), 4500);
     },
     [remove]

@@ -16,11 +16,11 @@ import { Pagination } from "@/components/ui/Pagination";
 import { CardsGridSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-import { planService } from "@/services/plan.service";
+import { maintenancePlanService } from "@/services/maintenancePlan.service";
 import { getErrorMessage } from "@/lib/api";
-import type { Plan } from "@/types";
+import type { MaintenancePlan } from "@/types";
 
-type PlanFormState = {
+type MaintenancePlanFormState = {
   name: string;
   description: string;
   price: number;
@@ -33,13 +33,13 @@ type PlanFormState = {
   sortOrder: number;
 };
 
-const EMPTY_FORM: PlanFormState = {
+const EMPTY_FORM: MaintenancePlanFormState = {
   name: "",
   description: "",
   price: 0,
   currency: "INR",
   duration: 1,
-  durationUnit: "year",
+  durationUnit: "month",
   features: "",
   isFree: false,
   status: "active",
@@ -58,7 +58,7 @@ const DURATION_UNIT_OPTIONS = [
   { value: "year", label: "Year(s)" },
 ];
 
-const PLAN_STATUS_OPTIONS = [
+const MAINTENANCE_STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
 ];
@@ -76,7 +76,7 @@ function formatDuration(duration: number, unit: string) {
   return duration === 1 ? `1 ${unit}` : `${duration} ${unit}s`;
 }
 
-export default function PlansPage() {
+export default function MaintenancePlansPage() {
   const toast = useToast();
   const [search, setSearch] = useState("");
   // Default to showing everything — a plan flipped to inactive shouldn't
@@ -87,9 +87,9 @@ export default function PlansPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<MaintenancePlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState<PlanFormState>(EMPTY_FORM);
+  const [formData, setFormData] = useState<MaintenancePlanFormState>(EMPTY_FORM);
 
   useEffect(() => {
     setPage(1);
@@ -101,7 +101,7 @@ export default function PlansPage() {
     pages,
     loading,
     refetch,
-  } = usePaginatedList(planService.list, {
+  } = usePaginatedList(maintenancePlanService.list, {
     search,
     page,
     limit: 9,
@@ -114,7 +114,7 @@ export default function PlansPage() {
     setIsDialogOpen(true);
   };
 
-  const openEditDialog = (plan: Plan) => {
+  const openEditDialog = (plan: MaintenancePlan) => {
     setSelectedPlan(plan);
     setFormData({
       name: plan.name,
@@ -150,18 +150,14 @@ export default function PlansPage() {
 
     setSubmitting(true);
     try {
-      const payload = {
-        ...formData,
-        price: formData.isFree ? 0 : formData.price,
-        features: featuresArray,
-      };
+      const payload = { ...formData, price: formData.isFree ? 0 : formData.price, features: featuresArray };
 
       if (selectedPlan) {
-        await planService.update(selectedPlan._id, payload);
-        toast.success("Plan updated successfully");
+        await maintenancePlanService.update(selectedPlan._id, payload);
+        toast.success("Maintenance plan updated successfully");
       } else {
-        await planService.create(payload);
-        toast.success("Plan created successfully");
+        await maintenancePlanService.create(payload);
+        toast.success("Maintenance plan created successfully");
       }
       closeDialog();
       refetch();
@@ -176,8 +172,8 @@ export default function PlansPage() {
     if (!selectedPlan) return;
     setSubmitting(true);
     try {
-      await planService.remove(selectedPlan._id);
-      toast.success("Plan deleted successfully");
+      await maintenancePlanService.remove(selectedPlan._id);
+      toast.success("Maintenance plan deleted successfully");
       setIsDeleteOpen(false);
       setSelectedPlan(null);
       if (plans.length === 1 && page > 1) {
@@ -195,17 +191,17 @@ export default function PlansPage() {
   return (
     <div>
       <PageHeader
-        title="Plans"
-        description="Manage subscription plans"
+        title="Maintenance Plans"
+        description="Paid support plans clients buy once their free maintenance window is over"
         actions={
           <Button icon={<FiPlus className="h-4 w-4" />} onClick={openCreateDialog}>
-            Add Plan
+            Add Maintenance Plan
           </Button>
         }
       />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search plans by name or description..." />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search maintenance plans..." />
         <Select
           options={STATUS_FILTER_OPTIONS}
           value={statusFilter}
@@ -218,7 +214,7 @@ export default function PlansPage() {
         <CardsGridSkeleton count={9} lines={4} />
       ) : plans.length === 0 ? (
         <Card className="py-12 text-center">
-          <p className="text-sm text-slate-500">No plans found</p>
+          <p className="text-sm text-slate-500">No maintenance plans found</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -281,7 +277,7 @@ export default function PlansPage() {
       <Dialog
         open={isDialogOpen}
         onClose={closeDialog}
-        title={selectedPlan ? "Edit Plan" : "Add Plan"}
+        title={selectedPlan ? "Edit Maintenance Plan" : "Add Maintenance Plan"}
         footer={
           <>
             <Button variant="secondary" onClick={closeDialog} disabled={submitting}>
@@ -334,25 +330,25 @@ export default function PlansPage() {
             value={formData.features}
             onChange={(e) => setFormData({ ...formData, features: e.target.value })}
             rows={5}
-            placeholder={"Feature 1\nFeature 2\nFeature 3"}
+            placeholder={"Bug fixes\nMinor changes\nPriority response"}
           />
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="isFree"
+              id="isFreeMaintenance"
               checked={formData.isFree}
               onChange={(e) =>
                 setFormData({ ...formData, isFree: e.target.checked, price: e.target.checked ? 0 : formData.price })
               }
               className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
             />
-            <label htmlFor="isFree" className="text-sm text-slate-700">
-              This is a free plan
+            <label htmlFor="isFreeMaintenance" className="text-sm text-slate-700">
+              This is a free maintenance plan
             </label>
           </div>
           <Select
             label="Status"
-            options={PLAN_STATUS_OPTIONS}
+            options={MAINTENANCE_STATUS_OPTIONS}
             value={formData.status}
             onChange={(e) => setFormData({ ...formData, status: e.target.value as "active" | "inactive" })}
           />
@@ -363,8 +359,8 @@ export default function PlansPage() {
         open={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete Plan"
-        description={`Are you sure you want to delete the "${selectedPlan?.name}" plan? This action cannot be undone.`}
+        title="Delete Maintenance Plan"
+        description={`Are you sure you want to delete the "${selectedPlan?.name}" maintenance plan? This action cannot be undone.`}
         confirmLabel={submitting ? "Deleting..." : "Delete"}
         variant="danger"
         loading={submitting}
